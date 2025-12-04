@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Game Engine Pro</title>
+
+    <link rel="icon" href="favicon.webp" type="image/png">
+
+    <!-- Quill.js Rich Text Editor CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    
+    <!-- スタイルシートの読み込み -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav id="main-nav">
+        <button class="nav-button active" data-mode="scenario">シナリオ編集</button>
+        <button class="nav-button" data-mode="preview">プレビュー</button>
+        <button class="nav-button" data-mode="variables">変数・フラグ管理</button>
+        <button class="nav-button" data-mode="characters">キャラクター管理</button>
+        <button class="nav-button" data-mode="backgrounds">背景管理</button>
+        <button class="nav-button" data-mode="sounds">効果音管理</button>
+
+        <div class="nav-separator"></div>
+
+        <input type="file" id="load-project-input" style="display: none;" accept=".json">
+        <button id="load-project-btn">読込</button>
+        <button id="save-project-btn">保存</button>
+        <button id="export-game-btn" class="export-button">ゲーム書き出し</button>
+    </nav>
+
+    <main id="main-content">
+        
+        <!-- シナリオ編集モード -->
+        <div id="mode-scenario" class="mode-content active">
+            <div class="scenario-layout">
+                <div class="scenario-sidebar">
+                    <div class="sidebar-header">
+                        <h3>シナリオ構成図</h3>
+                        <div class="toolbar">
+                            <button id="add-section-btn" title="新しい章(セクション)を追加">＋ 章を追加</button>
+                            <button id="add-node-btn" title="選択中の章にノードを追加">＋ ノード追加</button>
+                        </div>
+                    </div>
+                    <div id="scenario-tree"></div>
+                </div>
+
+                <div class="node-editor-panel">
+                    <h3>ノード編集</h3>
+                    <div id="node-editor" class="hidden">
+                        <div class="editor-header">
+                            <div class="node-id-badge">ID: <span id="node-id-display"></span></div>
+                            <div class="editor-actions">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="is-start-node"> 
+                                    <span>START地点にする</span>
+                                </label>
+                                <button id="delete-node-btn" class="danger-button">削除</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group-row" style="align-items: flex-end;">
+                            <div style="flex-grow: 1;">
+                                <label for="node-type">ノードの種類</label>
+                                <select id="node-type">
+                                    <option value="text">💬 テキスト / セリフ</option>
+                                    <option value="choice">🔀 分岐 / 選択肢</option>
+                                    <option value="variable">🔢 変数操作</option>
+                                    <option value="conditional">❓ 条件分岐 (IF)</option>
+                                </select>
+                            </div>
+                            <!-- ▼▼▼ ヘルプボタンを追加 ▼▼▼ -->
+                            <button id="open-help-btn" class="secondary-button" style="margin-bottom: 2px;">❓ 使い方のヒント</button>
+                        </div>
+                        
+<div id="text-node-settings" class="node-type-settings">
+                            <!-- ▼▼▼ 修正: キャラクターと立ち位置を横並びに ▼▼▼ -->
+                            <div class="form-group-row">
+                                <div style="flex:2">
+                                    <label>キャラクター</label>
+                                    <select id="node-character"></select>
+                                </div>
+                                <div style="flex:1">
+                                    <label>立ち位置</label>
+                                    <select id="node-position">
+                                        <option value="center">中</option>
+                                        <option value="left">左</option>
+                                        <option value="right">右</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group"><label>セリフ本文</label><div id="rich-text-editor"></div></div>
+                            
+                            <!-- ▼▼▼ 修正: 背景・BGM・効果音を並べる ▼▼▼ -->
+                            <div class="form-group"><label>背景画像</label><select id="node-background"></select></div>
+                            
+                            <div class="form-group-row">
+                                <div style="flex:1">
+                                    <label>BGM (ループ再生)</label>
+                                    <select id="node-bgm"></select>
+                                </div>
+                                <div style="flex:1">
+                                    <label>効果音 (単発)</label>
+                                    <select id="node-sound"></select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group"><label>次のノードへ進む</label><select id="node-next-text"></select></div>
+                        </div>
+
+
+                        <div id="choice-node-settings" class="node-type-settings hidden">
+                            <h4>選択肢</h4><div id="choices-editor"></div><button id="add-choice-btn" class="secondary-button">+ 選択肢を追加</button>
+                        </div>
+                        
+                      <div id="variable-node-settings" class="node-type-settings hidden">
+                            <h4>変数操作</h4>
+                            <div class="form-group"><label for="var-target">対象変数</label><select id="var-target"></select></div>
+                            <div class="form-group"><label for="var-operator">操作</label>
+                                <select id="var-operator">
+                                    <option value="=">代入 (=) : 下の値にする</option>
+                                    <option value="+=">加算 (+=) : 下の値を足す</option>
+                                    <option value="-=">減算 (-=) : 下の値を引く</option>
+                                    <option value="*=">乗算 (*=) : 下の値を掛ける</option>
+                                    <option value="/=">除算 (/=) : 下の値で割る</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="var-value">値 (数字、ダイス、または他の変数名)</label>
+                                <input type="text" id="var-value" placeholder="例: 10, 1d6, enemy_hp">
+                                <small style="color:#666;">※ 変数名を入力すると、その変数の値を使って計算します</small>
+                            </div>
+                            <div class="form-group"><label for="node-next-variable">次のノード</label><select id="node-next-variable"></select></div>
+                        </div>
+                        
+                        <div id="conditional-node-settings" class="node-type-settings hidden">
+                            <h4>条件分岐 (上から順にチェックします)</h4>
+                            <div id="conditions-editor"></div>
+                            <button id="add-condition-btn" class="secondary-button">+ 条件(IF)を追加</button>
+                            <hr>
+                            <div class="form-group"><label for="node-next-conditional-else">どの条件にも当てはまらない場合 (ELSE)</label><select id="node-next-conditional-else"></select></div>
+                        </div>
+                    </div>
+                    <div id="editor-placeholder">
+                        <p>左のツリーから編集したいノードを選択するか、<br>「＋ ノード追加」ボタンを押してください。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- プレビューモード -->
+        <div id="mode-preview" class="mode-content">
+            <div class="preview-area">
+                <div class="preview-window">
+                    <!-- JavaScriptがここにIframeを生成します -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 変数・フラグ管理モード -->
+        <div id="mode-variables" class="mode-content">
+            <h2>変数・フラグ管理</h2>
+            <p style="margin-bottom: 20px; color: #666;">
+                ゲーム内で変化する数字や文字を管理します。<br>
+                例: 「好感度」「所持金」「フラグ(出会ったかどうか)」など。
+            </p>
+            <div id="variables-list"></div>
+            <div class="add-variable-form">
+                <input type="text" id="new-variable-name" placeholder="変数名 (例: love_point)">
+                <input type="text" id="new-variable-value" placeholder="初期値 (例: 0)">
+                <button id="add-variable-btn" class="export-button">+ 変数を追加</button>
+            </div>
+        </div>
+        
+        <!-- キャラクター管理モード -->
+        <div id="mode-characters" class="mode-content">
+            <h2>キャラクター管理</h2>
+            <div class="asset-manager">
+                <div class="asset-uploader">
+                    <p>WebP形式のキャラクター画像を追加してください。</p>
+                    <input type="file" id="character-file-input" accept=".webp" multiple>
+                    <div id="character-list" class="asset-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 背景管理モード -->
+        <div id="mode-backgrounds" class="mode-content">
+            <h2>背景管理</h2>
+            <div class="asset-manager">
+                <div class="asset-uploader">
+                    <p>WebP形式の背景画像を追加してください。</p>
+                    <input type="file" id="background-file-input" accept=".webp" multiple>
+                    <div id="background-list" class="asset-list"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 効果音管理モード -->
+        <div id="mode-sounds" class="mode-content">
+            <h2>効果音管理</h2>
+            <div class="asset-manager">
+                <div class="asset-uploader">
+                    <p>MP3またはOgg形式の音声ファイルを追加してください。</p>
+                    <input type="file" id="sound-file-input" accept=".mp3,.ogg" multiple>
+                    <div id="sound-list" class="asset-list"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ▼▼▼ ヘルプ用モーダルウィンドウ ▼▼▼ -->
+   <div id="help-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>📖 使い方のヒント</h2>
+            <div class="help-section">
+                <h3>🔢 変数（へんすう）とは？</h3>
+                <p>ゲーム内のデータを記録しておく「箱」のようなものです。<br>
+                <strong>変数・フラグ管理</strong>タブで自由に作成できます。</p>
+                <ul>
+                    <li><code>gold</code> : 所持金</li>
+                    <li><code>love</code> : 好感度</li>
+                    <li><code>flag_met</code> : 出会ったかどうか (1=Yes, 0=No)</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3>🎲 ランダム・ダイス機能</h3>
+                <p>「値」の欄に以下の形式で書くと、ランダムな数字になります。</p>
+                <ul>
+                    <li><code>1d6</code> → サイコロを1回振る (1〜6)</li>
+                    <li><code>2d100+5</code> → 1〜100の乱数に5を足す</li>
+                </ul>
+            </div>
+        <div class="help-section">
+                <h3>💬 セリフ内での変数表示</h3>
+                <p>セリフ本文（リッチテキストエディタ）内で変数やフラグを表示するには、<strong>ダブル波括弧 {{ }}</strong> で変数を囲みます。</p>
+                <ul>
+                    <li>例: <code>お金が {{gold}} 円になりました。</code></li>
+                    <li>例: <code>今の好感度は {{love_point}} だね。</code></li>
+                </ul>
+                <p>※ 変数名は「変数・フラグ管理」タブで設定した名前と完全に一致させる必要があります。</p>
+            </div>
+            <div class="help-section">
+                <h3>🔄 変数を使った高度な計算・比較</h3>
+                <p>「値」の欄に<strong>他の変数の名前</strong>を入力することもできます。</p>
+                <ul>
+                    <li>変数操作: <code>gold += reward</code><br>
+                    → 所持金(gold)に、報酬(reward)変数の値を足します。</li>
+                    <li>条件分岐: <code>my_speed > enemy_speed</code><br>
+                    → 自分の素早さが、敵の素早さより高いかチェックします。</li>
+                </ul>
+                <p>これを使えば、RPGのようなバトル計算も可能です！</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quill.js Rich Text Editor JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    
+    <!-- JavaScriptモジュールの読み込み -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
