@@ -56,7 +56,6 @@ export function setProjectData(newData) {
     if (newData && newData.scenario && newData.assets && newData.variables) {
         projectData = newData;
     } else {
-        console.error("無効なプロジェクトデータがセットされようとしました。", newData);
         alert("無効なプロジェクトデータのため、読み込みを中断しました。");
     }
 }
