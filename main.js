@@ -13,7 +13,6 @@ import { exportGame } from './export.js'; // ★修正点1: exportGame関数を�
  * アプリケーションを起動するメイン関数
  */
 function main() {
-    console.log("Novel Game Engine: Initializing...");
 
     // 各モジュールの初期化を実行
     // この順番は重要。UIが最初に存在し、次にデータ操作、最後に入力処理。
@@ -27,11 +26,8 @@ function main() {
     const exportButton = document.getElementById('export-game-btn');
     if(exportButton) {
         exportButton.addEventListener('click', exportGame);
-    } else {
-        console.error("致命的エラー: 書き出しボタンが見つかりません。");
     }
     
-    console.log("Novel Game Engine: Ready.");
 }
 
 // --- アプリケーションの起動 ---
