@@ -42,7 +42,6 @@ function saveProject() {
         URL.revokeObjectURL(link.href);
 
     } catch (error) {
-        console.error("プロジェクトの保存に失敗しました:", error);
         alert("プロジェクトの保存中にエラーが発生しました。");
     }
 }
@@ -78,7 +77,6 @@ function loadProject(event) {
             alert(`「${file.name}」を読み込みました。`);
 
         } catch (err) {
-            console.error('プロジェクトファイルの読み込み、または解析に失敗しました:', err);
             alert('プロジェクトファイルの読み込みに失敗しました。有効なJSONファイルではありません。');
         }
     };
