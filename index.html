@@ -10,8 +10,14 @@
     <!-- Quill.js Rich Text Editor CSS -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     
+    <!-- Google Fonts 読み込み -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Klee+One&family=M+PLUS+Rounded+1c:wght@400;700&family=Shippori+Mincho&display=swap" rel="stylesheet">
+
     <!-- スタイルシートの読み込み -->
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="map_style.css">
 </head>
 <body>
 
@@ -22,6 +28,7 @@
         <button class="nav-button" data-mode="characters">キャラクター管理</button>
         <button class="nav-button" data-mode="backgrounds">背景管理</button>
         <button class="nav-button" data-mode="sounds">効果音管理</button>
+        <button class="nav-button" data-mode="map">マップ作成</button>
 
         <div class="nav-separator"></div>
 
@@ -69,28 +76,44 @@
                                     <option value="choice">🔀 分岐 / 選択肢</option>
                                     <option value="variable">🔢 変数操作</option>
                                     <option value="conditional">❓ 条件分岐 (IF)</option>
+                                    <option value="map">🗺️ マップ移動</option>
                                 </select>
                             </div>
                             <button id="open-help-btn" class="secondary-button" style="margin-bottom: 2px;">❓ 使い方のヒント</button>
                         </div>
                         
+                        <!-- テキストノード設定 -->
                         <div id="text-node-settings" class="node-type-settings">
                             <div class="form-group-row">
                                 <div style="flex:2">
-                                    <label>キャラクター</label>
+                                    <label>キャラクター画像</label>
                                     <select id="node-character"></select>
                                 </div>
-                                <div style="flex:1">
-                                    <label>立ち位置</label>
-                                    <select id="node-position">
-                                        <option value="center">中</option>
-                                        <option value="left">左</option>
-                                        <option value="right">右</option>
-                                    </select>
+                                <div style="flex:2">
+                                    <label>表示名 (上書き用・空欄で画像名)</label>
+                                    <input type="text" id="node-custom-name" placeholder="例: 謎の男 / ???">
                                 </div>
                             </div>
                             
-                            <div class="form-group"><label>セリフ本文</label><div id="rich-text-editor"></div></div>
+                            <div class="form-group">
+                                <label>立ち位置</label>
+                                <select id="node-position">
+                                    <option value="top-left">↖ 左上</option>
+                                    <option value="top-center">⬆ 中央上</option>
+                                    <option value="top-right">↗ 右上</option>
+                                    <option value="center-left">⬅ 左中</option>
+                                    <option value="center">⏺ 中央 (ど真ん中)</option>
+                                    <option value="center-right">➡ 右中</option>
+                                    <option value="bottom-left">↙ 左下</option>
+                                    <option value="bottom-center" selected>⬇ 中央下 (デフォルト)</option>
+                                    <option value="bottom-right">↘ 右下</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>セリフ本文 (空欄だとウィンドウが消えます)</label>
+                                <div id="rich-text-editor"></div>
+                            </div>
                             
                             <div class="form-group"><label>背景画像</label><select id="node-background"></select></div>
                             
@@ -105,20 +128,20 @@
                                 </div>
                             </div>
                             
-                            <!-- ★修正: スマート選択用に div コンテナに変更 -->
                             <div class="form-group">
                                 <label>次のノードへ進む</label>
                                 <div id="container-next-text" class="smart-select-container"></div>
                             </div>
                         </div>
 
-
+                        <!-- 選択肢ノード設定 -->
                         <div id="choice-node-settings" class="node-type-settings hidden">
                             <h4>選択肢</h4>
                             <div id="choices-editor"></div>
                             <button id="add-choice-btn" class="secondary-button">+ 選択肢を追加</button>
                         </div>
                         
+                        <!-- 変数ノード設定 -->
                         <div id="variable-node-settings" class="node-type-settings hidden">
                             <h4>変数操作</h4>
                             <div class="form-group"><label for="var-target">対象変数</label><select id="var-target"></select></div>
@@ -136,26 +159,40 @@
                                 <input type="text" id="var-value" placeholder="例: 10, 1d6, enemy_hp">
                                 <small style="color:#666;">※ 変数名を入力すると、その変数の値を使って計算します</small>
                             </div>
-                            
-                            <!-- ★修正: スマート選択用に div コンテナに変更 -->
                             <div class="form-group">
                                 <label for="node-next-variable">次のノード</label>
                                 <div id="container-next-variable" class="smart-select-container"></div>
                             </div>
                         </div>
                         
+                        <!-- 条件分岐ノード設定 -->
                         <div id="conditional-node-settings" class="node-type-settings hidden">
                             <h4>条件分岐 (上から順にチェックします)</h4>
                             <div id="conditions-editor"></div>
                             <button id="add-condition-btn" class="secondary-button">+ 条件(IF)を追加</button>
                             <hr>
-                            
-                            <!-- ★修正: スマート選択用に div コンテナに変更 -->
                             <div class="form-group">
                                 <label for="node-next-conditional-else">どの条件にも当てはまらない場合 (ELSE)</label>
                                 <div id="container-next-conditional-else" class="smart-select-container"></div>
                             </div>
                         </div>
+
+                        <!-- マップノード設定 -->
+                        <div id="map-node-settings" class="node-type-settings hidden">
+                            <h4>マップ移動設定</h4>
+                            <p style="font-size:0.9em; color:#666;">このノードに到達すると、アクションパートが開始されます。</p>
+                            
+                            <div class="form-group">
+                                <label>移動先マップ</label>
+                                <select id="node-map-dest"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>出現位置 (Spawn ID)</label>
+                                <select id="node-map-spawn"></select>
+                                <small style="color:#666;">※ 移動先マップ内の「出現ポイント」を選択します。</small>
+                            </div>
+                        </div>
+
                     </div>
                     <div id="editor-placeholder">
                         <p>左のツリーから編集したいノードを選択するか、<br>「＋ ノード追加」ボタンを押してください。</p>
@@ -193,7 +230,6 @@
             <h2>キャラクター管理</h2>
             <div class="asset-manager">
                 <div class="asset-uploader">
-                    <!-- ★修正: JSON対応の文言に変更 -->
                     <p>WebP画像、またはスプライト設定JSONファイルを追加してください。</p>
                     <input type="file" id="character-file-input" accept=".webp,.json" multiple>
                     <div id="character-list" class="asset-list"></div>
@@ -206,7 +242,6 @@
             <h2>背景管理</h2>
             <div class="asset-manager">
                 <div class="asset-uploader">
-                    <!-- ★修正: JSON対応の文言に変更 -->
                     <p>WebP画像、またはスプライト設定JSONファイルを追加してください。</p>
                     <input type="file" id="background-file-input" accept=".webp,.json" multiple>
                     <div id="background-list" class="asset-list"></div>
@@ -222,6 +257,219 @@
                     <p>MP3、Ogg、Opus、またはWebM形式の音声ファイルを追加してください。</p>
                     <input type="file" id="sound-file-input" accept=".mp3,.ogg,.opus,.webm" multiple>
                     <div id="sound-list" class="asset-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- マップ作成モード -->
+        <div id="mode-map" class="mode-content">
+            <div class="map-editor-layout">
+                <div class="map-sidebar">
+                    <!-- 常に表示されるエリア -->
+                    <h3>マップ管理</h3>
+                    <button id="create-map-btn" class="secondary-button">+ 新規マップ作成</button>
+                    <select id="map-list-select"></select>
+                    
+                    <hr>
+                    
+                    <!-- マップ選択時のみ表示されるエリア -->
+                    <div id="map-editor-ui" class="hidden">
+                        <div class="accordion-header" onclick="document.getElementById('map-basic-settings').classList.toggle('hidden')">▼ マップ基本設定</div>
+                        <div id="map-basic-settings">
+                            <form id="map-settings-form">
+                                <div class="form-group"><label>名前</label><input type="text" id="map-name"></div>
+                                <div class="form-group"><label>タイプ</label>
+                                    <select id="map-type">
+                                        <option value="topdown">RPG風 (見下ろし)</option>
+                                        <option value="side">アクション風 (横)</option>
+                                        <option value="shooter">シューティング風 (縦)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group-row">
+                                    <div><label>幅</label><input type="number" id="map-width" style="width:60px"></div>
+                                    <div><label>高</label><input type="number" id="map-height" style="width:60px"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>背景画像</label>
+                                    <select id="map-bg-select"></select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>強制スクロール</label>
+                                    <div style="display:flex; gap:5px;">
+                                        <select id="map-scroll-dir" style="flex:2;">
+                                            <option value="none">なし</option>
+                                            <option value="right">右へ (→)</option>
+                                            <option value="left">左へ (←)</option>
+                                            <option value="up">上へ (↑)</option>
+                                            <option value="down">下へ (↓)</option>
+                                        </select>
+                                        <input type="number" id="map-scroll-speed" placeholder="速" style="flex:1;">
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <hr>
+
+                        <h4>ツール</h4>
+                        <div class="map-tools">
+                            <button class="map-tool-btn active" data-tool="pointer">👆 選択</button>
+                            <button class="map-tool-btn" data-tool="pen">✏️ 配置</button>
+                            <button class="map-tool-btn" data-tool="erase">🧹 消去</button>
+                        </div>
+
+                        <div id="obj-settings-container" class="map-props" style="margin-top:15px; border-top:2px solid #aaa; padding-top:10px;">
+                            <h4 style="margin-bottom:10px; background:#eee; padding:5px;">オブジェクト設定</h4>
+                            <p style="font-size:0.8em; color:#666; margin-bottom:10px;">※配置前または選択中のオブジェクトに適用</p>
+                            
+                            <form id="obj-settings-form">
+                                <!-- 見た目設定 -->
+                                <div class="form-group">
+                                    <label>見た目タイプ</label>
+                                    <select id="obj-visual-type">
+                                        <option value="color">単色ブロック</option>
+                                        <option value="image">キャラクター画像</option>
+                                    </select>
+                                </div>
+
+                                <!-- 単色設定 -->
+                                <div id="obj-visual-color-group" class="form-group">
+                                    <label>色 / 透明度</label>
+                                    <div style="display:flex; gap:5px;">
+                                        <input type="color" id="obj-color" style="flex:1; height:30px;">
+                                        <input type="number" id="obj-opacity" min="0" max="100" value="100" placeholder="%" style="width:60px;">
+                                        <span style="line-height:30px;">%</span>
+                                    </div>
+                                </div>
+
+                                <!-- 画像設定 -->
+                                <div id="obj-visual-image-group" class="form-group" style="display:none;">
+                                    <label>画像 / 透明度</label>
+                                    <select id="obj-char-select" style="margin-bottom:5px;"></select>
+                                    <div style="display:flex; gap:5px; align-items:center;">
+                                        <span>透明度:</span>
+                                        <input type="number" id="obj-img-opacity" min="0" max="100" value="100" style="width:60px;">
+                                        <span>%</span>
+                                    </div>
+                                </div>
+
+                                <hr style="margin: 10px 0;">
+
+                                <!-- 出現条件 -->
+                                <div class="form-group">
+                                    <label>出現条件 (空欄なら常に表示)</label>
+                                    <div style="display:flex; gap:2px; align-items:center;">
+                                        <select id="obj-cond-var" style="flex:2; min-width:0;"></select>
+                                        <select id="obj-cond-op" style="flex:1; min-width:0;">
+                                            <option value="==">=</option>
+                                            <option value="!=">≠</option>
+                                            <option value=">">&gt;</option>
+                                            <option value="<">&lt;</option>
+                                            <option value=">=">≥</option>
+                                            <option value="<=">≤</option>
+                                        </select>
+                                        <input type="text" id="obj-cond-val" placeholder="値" style="flex:1; min-width:0;">
+                                    </div>
+                                </div>
+
+                                <hr style="margin: 10px 0;">
+
+                                <!-- 物理設定 -->
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="obj-is-wall" checked>
+                                        <span>🚧 障害物として扱う (当たり判定 ON)</span>
+                                    </label>
+                                    <p style="font-size:0.8em; color:#888; margin-left:20px;">
+                                        ※ OFFにすると、キャラが重なったり通り抜けたりできる「背景/装飾」になります。
+                                    </p>
+                                    
+                                    <label style="margin-top:10px;">特殊効果 (アクション用)</label>
+                                    <select id="obj-effect-type">
+                                        <option value="none">なし</option>
+                                        <option value="ladder">🧗 ハシゴ (昇降可能)</option>
+                                        <option value="jump">⏫ ジャンプ台 (大ジャンプ)</option>
+                                    </select>
+                                </div>
+
+                                <hr style="margin: 10px 0;">
+
+                                <!-- ★追加: 自動移動設定 -->
+                                <div class="form-group">
+                                    <label>自律移動 (NPC/敵)</label>
+                                    <select id="obj-move-type">
+                                        <option value="fixed">固定 (動かない)</option>
+                                        <option value="random">ランダム (不規則移動)</option>
+                                        <option value="horizontal">左右往復 (パトロール)</option>
+                                        <option value="vertical">上下往復 (パトロール)</option>
+                                        <option value="chase">追尾 (プレイヤーへ)</option>
+                                    </select>
+                                    <div id="obj-move-details" style="display:none; margin-top:5px; padding-left:10px; border-left:3px solid #f0ad4e;">
+                                        <div style="display:flex; gap:5px;">
+                                            <div><label style="font-size:0.8em;">速度</label><input type="number" id="obj-move-speed" value="2" style="width:50px;"></div>
+                                            <div><label style="font-size:0.8em;">範囲/頻度</label><input type="number" id="obj-move-range" value="3" style="width:50px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr style="margin: 10px 0;">
+
+                                <!-- 機能設定: イベント -->
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="obj-has-event">
+                                        <span>⚡ イベントを設定する</span>
+                                    </label>
+                                </div>
+                                <div id="obj-event-details" style="display:none; padding-left:10px; border-left:3px solid #007bff; margin-bottom:10px;">
+                                    <div class="form-group">
+                                        <label>発生条件</label>
+                                        <select id="obj-event-trigger">
+                                            <option value="touch">接触時 (Touch)</option>
+                                            <option value="action">調べる (Actionボタン)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>進行タイプ (複数回実行時)</label>
+                                        <select id="obj-event-repeat">
+                                            <option value="once">1回のみ</option>
+                                            <option value="loop">ループ</option>
+                                            <option value="stick">最後で固定</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>実行するノード (順序)</label>
+                                        <div id="obj-event-list-container"></div>
+                                        <button type="button" id="add-event-step-btn" class="secondary-button" style="margin-top:5px; font-size:0.8em;">+ ステップ追加</button>
+                                    </div>
+                                </div>
+
+                                <!-- 機能設定: 出現点 -->
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="obj-is-spawn">
+                                        <span>🚩 出現ポイントにする</span>
+                                    </label>
+                                </div>
+                                <div id="obj-spawn-details" style="display:none; padding-left:10px; border-left:3px solid #28a745;">
+                                    <div class="form-group">
+                                        <label>出現点ID (任意の名前)</label>
+                                        <input type="text" id="obj-spawn-id" placeholder="例: start_point">
+                                    </div>
+                                </div>
+
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="map-canvas-area">
+                    <canvas id="map-canvas" class="hidden"></canvas>
+                    <div id="map-placeholder">
+                        <p>左上の「+ 新規マップ作成」を押すか、<br>リストから編集するマップを選択してください。</p>
+                    </div>
                 </div>
             </div>
         </div>
