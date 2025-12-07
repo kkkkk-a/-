@@ -326,17 +326,33 @@ main { padding: 20px; }
 
 /* キャラクターレイヤー */
 #character-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     display: flex;
-    justify-content: center; /* デフォルトは中央 */
+    /* デフォルトは中央下 */
+    justify-content: center;
     align-items: flex-end;
-    transition: justify-content 0s, opacity 0.5s ease-in-out; 
+    
+    transition: all 0s, opacity 0.5s ease-in-out; 
     padding: 0 5%;
     box-sizing: border-box;
+    pointer-events: none; /* クリックを通過させる */
 }
-/* 立ち位置用クラス */
-#character-layer.pos-left { justify-content: flex-start; }
-#character-layer.pos-center { justify-content: center; }
-#character-layer.pos-right { justify-content: flex-end; }
+
+/* 9方向の立ち位置クラス */
+/* 上段 */
+#character-layer.pos-top-left { justify-content: flex-start; align-items: flex-start; }
+#character-layer.pos-top-center { justify-content: center; align-items: flex-start; }
+#character-layer.pos-top-right { justify-content: flex-end; align-items: flex-start; }
+
+/* 中段 */
+#character-layer.pos-center-left { justify-content: flex-start; align-items: center; }
+#character-layer.pos-center { justify-content: center; align-items: center; }
+#character-layer.pos-center-right { justify-content: flex-end; align-items: center; }
+
+/* 下段 */
+#character-layer.pos-bottom-left { justify-content: flex-start; align-items: flex-end; }
+#character-layer.pos-bottom-center { justify-content: center; align-items: flex-end; }
+#character-layer.pos-bottom-right { justify-content: flex-end; align-items: flex-end; }
 
 #character-layer img {
     max-height: 95%;
@@ -617,4 +633,66 @@ input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--pri
     
    .editor-header { flex-direction: column; align-items: flex-start; gap: 10px; }
     .editor-actions { width: 100%; justify-content: space-between; }
+}
+
+/* Quill Editor Font Classes (Editor View) */
+.ql-font-dotgothic { font-family: "DotGothic16", sans-serif; }
+.ql-font-rounded { font-family: "M PLUS Rounded 1c", sans-serif; }
+.ql-font-klee { font-family: "Klee One", cursive; }
+.ql-font-mincho-b { font-family: "Shippori Mincho", serif; }
+
+
+.ql-snow .ql-picker.ql-font {
+    width: 150px !important; /* デフォルトより広く確保 (必要に応じて数値を調整) */
+}
+
+/* ラベルと選択肢の文字が改行されないようにする */
+.ql-snow .ql-picker.ql-font .ql-picker-label,
+.ql-snow .ql-picker.ql-font .ql-picker-item {
+    white-space: nowrap !important; /* 改行禁止 */
+    overflow: hidden;
+    text-overflow: ellipsis; /* はみ出たら...にする */
+    padding-right: 20px; /* 右側の矢印アイコンと被らないように余白 */
+}
+
+/* ドットゴシック (DotGothic16) */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="dotgothic"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="dotgothic"]::before {
+    content: 'ドットゴシック';
+    font-family: "DotGothic16", sans-serif;
+}
+
+/* 丸ゴシック (M PLUS Rounded 1c) */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="rounded"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="rounded"]::before {
+    content: '丸ゴシック';
+    font-family: "M PLUS Rounded 1c", sans-serif;
+}
+
+/* 手書き風 (Klee One) */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="klee"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="klee"]::before {
+    content: '手書き風';
+    font-family: "Klee One", cursive;
+}
+
+/* 特太明朝 (Shippori Mincho) */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="mincho-b"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="mincho-b"]::before {
+    content: '特太明朝';
+    font-family: "Shippori Mincho", serif;
+}
+
+/* デフォルトフォントの日本語表記対応 */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="sans-serif"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="sans-serif"]::before {
+    content: 'ゴシック体 (標準)';
+}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="serif"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="serif"]::before {
+    content: '明朝体';
+}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="monospace"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="monospace"]::before {
+    content: '等幅フォント';
 }
