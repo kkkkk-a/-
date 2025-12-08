@@ -20,7 +20,7 @@ export function generateGameHtml(data, startNodeOverride = null) {
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Klee+One&family=M+PLUS+Rounded+1c:wght@400;700&family=Shippori+Mincho&display=swap" rel="stylesheet">
 
     <style>
-        body { margin: 0; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Biz UDPGothic", sans-serif; background-color: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; touch-action: none; }
+        body { margin: 0; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Biz UDPGothic", sans-serif; background-color: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
         p{ margin:0; }
         #game-container { position: relative; width: 800px; height: 600px; max-width: 100%; max-height: 100vh; overflow: hidden; background-color: #000; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); }
         
@@ -65,19 +65,37 @@ export function generateGameHtml(data, startNodeOverride = null) {
         #map-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; display: none; background: #222; }
         #map-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
         
-        #map-controls { position: absolute; bottom: 20px; left: 20px; z-index: 50; display: none; grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px; gap: 10px; }
-        #map-action-btn { position: absolute; bottom: 30px; right: 30px; z-index: 50; width: 80px; height: 80px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); border: 2px solid #fff; color: #fff; font-weight: bold; font-size: 1.2em; display: none; justify-content: center; align-items: center; user-select: none; cursor: pointer; }
-        .pad-btn { width: 60px; height: 60px; background: rgba(255, 255, 255, 0.2); border: 1px solid #fff; border-radius: 10px; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 1.5em; user-select: none; cursor: pointer; }
+        /* コントローラー (PC/スマホ問わず表示) */
+        #map-controls { 
+            position: absolute; bottom: 20px; left: 20px; z-index: 50; 
+            display: none; /* JSで制御 */
+            grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px; gap: 10px; 
+        }
+        #map-action-btn { 
+            position: absolute; bottom: 30px; right: 30px; z-index: 50; 
+            width: 80px; height: 80px; border-radius: 50%; 
+            background: rgba(255, 255, 255, 0.3); border: 2px solid #fff; color: #fff; 
+            font-weight: bold; font-size: 1.2em; 
+            display: none; /* JSで制御 */
+            justify-content: center; align-items: center; 
+            user-select: none; cursor: pointer; 
+        }
+        .pad-btn { 
+            width: 60px; height: 60px; background: rgba(255, 255, 255, 0.2); 
+            border: 1px solid #fff; border-radius: 10px; 
+            display: flex; justify-content: center; align-items: center; 
+            color: #fff; font-size: 1.5em; user-select: none; cursor: pointer; 
+        }
+        
+        /* アクティブ時の表示設定 */
+        #map-controls.active { display: grid; }
+        #map-action-btn.active { display: flex; }
+
         .pad-btn:active, #map-action-btn:active { background: rgba(255, 255, 255, 0.5); }
         .pad-up { grid-column: 2; grid-row: 1; }
         .pad-left { grid-column: 1; grid-row: 2; }
         .pad-down { grid-column: 2; grid-row: 2; }
         .pad-right { grid-column: 3; grid-row: 2; }
-
-        @media (hover: none) and (pointer: coarse) {
-            #map-controls.active, #map-action-btn.active { display: grid; }
-            #map-action-btn.active { display: flex; }
-        }
     </style>
 </head>
 <body>
@@ -90,6 +108,7 @@ export function generateGameHtml(data, startNodeOverride = null) {
         <!-- Action Game Parts -->
         <div id="map-layer">
             <canvas id="map-canvas"></canvas>
+            <!-- 画面上コントローラー -->
             <div id="map-controls">
                 <div class="pad-btn pad-up" data-key="ArrowUp">↑</div>
                 <div class="pad-btn pad-left" data-key="ArrowLeft">←</div>
@@ -106,7 +125,6 @@ export function generateGameHtml(data, startNodeOverride = null) {
     </div>
 
     <script>
-        console.log('--- EXPORTED GAME ENGINE START ---');
         const gameData = ${dataString};
         let gameState = { ...gameData.variables };
         
@@ -246,7 +264,6 @@ export function generateGameHtml(data, startNodeOverride = null) {
 
             if (isMapMode && node.type !== 'map') endMapMode();
 
-            console.log('Node:', nodeId, node.type);
             isWaitingForInput = false;
 
             switch(node.type) {
@@ -399,11 +416,13 @@ export function generateGameHtml(data, startNodeOverride = null) {
             isMapMode = true;
             const mapId = node.mapId;
             const mapData = gameData.maps[mapId];
-            if (!mapData) { console.error('Map data not found'); return; }
+            if (!mapData) { return; }
 
             layers.map.style.display = 'block';
             ui.textBox.style.display = 'none';
             ui.overlay.style.display = 'none';
+            
+            // ★修正: スマホ判定せずにアクティブクラスを追加（PCでも表示）
             ui.mapControls.classList.add('active');
             ui.mapActionBtn.classList.add('active');
 
@@ -428,18 +447,14 @@ export function generateGameHtml(data, startNodeOverride = null) {
             mapEngine.player.onGround = false;
             mapEngine.player.isClimbing = false;
             
-            // ★オブジェクトの初期化（移動用ステート設定）
-            // JSONデータは参照渡しになるため、実行用プロパティを追加する場合は注意が必要
-            // ここでは簡易的に元のオブジェクトにプロパティを追加（リセット時に再初期化推奨）
             mapEngine.activeObjects = mapData.objects.filter(obj => checkCondition(obj));
             mapEngine.activeObjects.forEach(obj => {
                 obj.currentX = obj.x * mapEngine.GRID;
                 obj.currentY = obj.y * mapEngine.GRID;
                 obj.moveTimer = 0;
-                // 初期方向（ランダムや往復用）
                 obj.dirX = Math.random() > 0.5 ? 1 : -1;
                 obj.dirY = Math.random() > 0.5 ? 1 : -1;
-                obj.originX = obj.x; // グリッド単位の初期位置
+                obj.originX = obj.x;
                 obj.originY = obj.y;
             });
             
@@ -458,18 +473,14 @@ export function generateGameHtml(data, startNodeOverride = null) {
             const map = mapEngine.data;
             const grid = mapEngine.GRID;
             
-            // オブジェクトの再評価（変数が変わった場合など）
-            // ※ 毎フレームfilterは重いかもしれないが、イベント実行で変数が変わる可能性があるため
             mapEngine.activeObjects = map.objects.filter(obj => checkCondition(obj));
-
-            // ★オブジェクトの移動処理
             mapEngine.activeObjects.forEach(obj => updateObjectMovement(obj, dt));
 
             let dx = 0, dy = 0;
             if (mapEngine.keys['ArrowLeft']) dx = -1;
             if (mapEngine.keys['ArrowRight']) dx = 1;
             
-            // --- Player Movement ---
+            // --- Movement Logic ---
             if (map.type === 'side') {
                 const cx = Math.floor((p.x + p.w/2) / grid);
                 const cy = Math.floor((p.y + p.h/2) / grid);
@@ -549,11 +560,9 @@ export function generateGameHtml(data, startNodeOverride = null) {
             checkMapEvents(p);
         }
 
-        // ★オブジェクト移動ロジック
         function updateObjectMovement(obj, dt) {
             if (!obj.moveType || obj.moveType === 'fixed') return;
             
-            // 初期化（初回のみ）
             if (obj.currentX === undefined) {
                 obj.currentX = obj.x * mapEngine.GRID;
                 obj.currentY = obj.y * mapEngine.GRID;
@@ -562,7 +571,7 @@ export function generateGameHtml(data, startNodeOverride = null) {
                 obj.dirY = 0;
             }
 
-            const speed = (obj.moveSpeed || 2) * (dt / 16); // 簡易デルタタイム補正
+            const speed = (obj.moveSpeed || 2) * (dt / 16); 
             const range = (obj.moveRange || 3) * mapEngine.GRID;
             const startX = obj.x * mapEngine.GRID;
             const startY = obj.y * mapEngine.GRID;
@@ -574,13 +583,13 @@ export function generateGameHtml(data, startNodeOverride = null) {
             } 
             else if (obj.moveType === 'vertical') {
                 obj.currentY += speed * obj.dirY;
-                if (obj.dirY === 0) obj.dirY = 1; // 初期化漏れ対策
+                if (obj.dirY === 0) obj.dirY = 1; 
                 if (obj.currentY > startY + range) obj.dirY = -1;
                 if (obj.currentY < startY - range) obj.dirY = 1;
             }
             else if (obj.moveType === 'random') {
                 obj.moveTimer += dt;
-                if (obj.moveTimer > 1000) { // 1秒ごとに方向転換
+                if (obj.moveTimer > 1000) { 
                     obj.moveTimer = 0;
                     const r = Math.random();
                     if(r < 0.25) { obj.dirX = 1; obj.dirY = 0; }
@@ -588,11 +597,8 @@ export function generateGameHtml(data, startNodeOverride = null) {
                     else if(r < 0.75) { obj.dirX = 0; obj.dirY = 1; }
                     else { obj.dirX = 0; obj.dirY = -1; }
                 }
-                // 簡易移動（壁判定は省略、範囲内のみ）
                 let nextX = obj.currentX + speed * obj.dirX;
                 let nextY = obj.currentY + speed * obj.dirY;
-                
-                // 初期位置からの範囲制限
                 if (Math.abs(nextX - startX) < range && Math.abs(nextY - startY) < range) {
                     obj.currentX = nextX;
                     obj.currentY = nextY;
@@ -603,8 +609,7 @@ export function generateGameHtml(data, startNodeOverride = null) {
                 const dx = p.x - obj.currentX;
                 const dy = p.y - obj.currentY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                
-                if (dist < range * 2) { // 範囲内に入ったら追尾
+                if (dist < range * 2) { 
                     if (Math.abs(dx) > 2) obj.currentX += Math.sign(dx) * speed;
                     if (Math.abs(dy) > 2) obj.currentY += Math.sign(dy) * speed;
                 }
@@ -626,10 +631,6 @@ export function generateGameHtml(data, startNodeOverride = null) {
                 if (obj && obj.isWall) return true;
                 return false;
             };
-
-            // ★オブジェクトとの動的な衝突（簡易）
-            // activeObjectsの中でisWallかつ、グリッド座標ではない動的座標を持つものをチェックすべきだが
-            // 今回はグリッドベースの壁判定のみとする（複雑化防止）
 
             const checkSpecial = (gx, gy) => {
                 const obj = mapEngine.activeObjects.find(o => o.x === gx && o.y === gy);
@@ -669,20 +670,13 @@ export function generateGameHtml(data, startNodeOverride = null) {
 
         function checkMapEvents(p) {
             const grid = mapEngine.GRID;
-            // プレイヤー矩形とオブジェクト矩形の衝突判定（より精密に）
             const pRect = { l: p.x, r: p.x+p.w, t: p.y, b: p.y+p.h };
 
-            // 重なり判定
             const hitObj = mapEngine.activeObjects.find(o => {
                 if (!o.hasEvent) return false;
-                
-                // 動いている場合は currentX/Y を使う
                 const ox = (o.currentX !== undefined) ? o.currentX : o.x * grid;
                 const oy = (o.currentY !== undefined) ? o.currentY : o.y * grid;
-                
-                // 矩形衝突
-                return (pRect.l < ox + grid && pRect.r > ox &&
-                        pRect.t < oy + grid && pRect.b > oy);
+                return (pRect.l < ox + grid && pRect.r > ox && pRect.t < oy + grid && pRect.b > oy);
             });
             
             if (hitObj) {
@@ -741,7 +735,6 @@ export function generateGameHtml(data, startNodeOverride = null) {
             if (map.type !== 'shooter') ctx.translate(-cam.x, -cam.y);
 
             mapEngine.activeObjects.forEach(obj => {
-                // 動的座標を使用
                 const gx = (obj.currentX !== undefined) ? obj.currentX : obj.x * grid;
                 const gy = (obj.currentY !== undefined) ? obj.currentY : obj.y * grid;
 
@@ -753,9 +746,7 @@ export function generateGameHtml(data, startNodeOverride = null) {
                 ctx.globalAlpha = obj.opacity !== undefined ? obj.opacity : 1.0;
 
                 if (obj.visualType === 'image' && obj.charId && gameData.assets.characters[obj.charId]) {
-                    // スプライト表示（簡易）
                     ctx.fillStyle = obj.color || 'orange'; 
-                    // ctx.drawImage(...) 画像オブジェクトがあれば描画
                     ctx.fillRect(gx, gy, grid, grid);
                 } else {
                     ctx.fillStyle = obj.color || '#888';
@@ -778,20 +769,32 @@ export function generateGameHtml(data, startNodeOverride = null) {
             mapEngine.keys[e.code] = false;
         });
 
+        // ★追加: マウス/タッチ操作 (PCでもクリックで反応)
         document.querySelectorAll('.pad-btn').forEach(btn => {
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); mapEngine.keys[btn.dataset.key] = true; });
-            btn.addEventListener('touchend', (e) => { e.preventDefault(); mapEngine.keys[btn.dataset.key] = false; });
+            const start = (e) => { e.preventDefault(); mapEngine.keys[btn.dataset.key] = true; };
+            const end = (e) => { e.preventDefault(); mapEngine.keys[btn.dataset.key] = false; };
+            
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            btn.addEventListener('mouseleave', end);
+            btn.addEventListener('touchstart', start);
+            btn.addEventListener('touchend', end);
         });
         const actBtn = document.getElementById('map-action-btn');
-        actBtn.addEventListener('touchstart', (e) => { e.preventDefault(); mapEngine.keys['Space'] = true; });
-        actBtn.addEventListener('touchend', (e) => { e.preventDefault(); mapEngine.keys['Space'] = false; });
+        const actStart = (e) => { e.preventDefault(); mapEngine.keys['Space'] = true; };
+        const actEnd = (e) => { e.preventDefault(); mapEngine.keys['Space'] = false; };
+        
+        actBtn.addEventListener('mousedown', actStart);
+        actBtn.addEventListener('mouseup', actEnd);
+        actBtn.addEventListener('mouseleave', actEnd);
+        actBtn.addEventListener('touchstart', actStart);
+        actBtn.addEventListener('touchend', actEnd);
 
         const advGame = () => { userInteraction(); if (isWaitingForInput && !isMapMode) processNode(currentNodeId); };
         ui.textBox.addEventListener('click', advGame);
         ui.overlay.addEventListener('click', advGame);
 
         window.onload = () => { if(currentNodeId && currentNodeId !== "null") processNode(currentNodeId); };
-        console.log('--- EXPORTED GAME JS END ---');
     <\/script></body></html>`;
 }
 
@@ -808,8 +811,7 @@ export function exportGame() {
         link.click(); 
         document.body.removeChild(link); 
         URL.revokeObjectURL(link.href);
-    } catch (error) { 
-        console.error("Export Error:", error); 
+    } catch (error) {
         alert("書き出しエラーが発生しました。コンソールを確認してください。"); 
     }
 }
