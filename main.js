@@ -6,28 +6,31 @@
 import { initUi } from './ui.js';
 import { initAssetHandlers } from './assets.js';
 import { initProjectHandlers } from './project.js';
-import { initMainHandlers } from './mainHandlers.js'; // これが他のハンドラも初期化する
-import { exportGame } from './export.js'; // ★修正点1: exportGame関数を直接インポート
+import { initMainHandlers } from './mainHandlers.js'; 
+import { exportGame } from './export.js'; 
+import { initMapEditor } from './mapEditor.js'; // ★追加: マップエディタの読み込み
 
 /**
  * アプリケーションを起動するメイン関数
  */
 function main() {
-
     // 各モジュールの初期化を実行
     // この順番は重要。UIが最初に存在し、次にデータ操作、最後に入力処理。
     initUi();
     initAssetHandlers();
     initProjectHandlers();
     initMainHandlers(); 
+    
+    // ★追加: マップエディタの初期化を実行
+    initMapEditor();
 
-    // ★修正点2: 書き出しボタンに直接イベントリスナーを設定
-    // これで export.js が責務を持つボタンのイベントが正しく設定される
+    // 書き出しボタンに直接イベントリスナーを設定
     const exportButton = document.getElementById('export-game-btn');
     if(exportButton) {
         exportButton.addEventListener('click', exportGame);
+    } else {
+        console.error("致命的エラー: 書き出しボタンが見つかりません。");
     }
-    
 }
 
 // --- アプリケーションの起動 ---
