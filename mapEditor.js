@@ -4,7 +4,7 @@ import { createLinkedSelects, populateAssetSelect } from './ui.js';
 
 // エディタの状態
 let currentMapId = null;
-let currentTool = 'pointer'; // pointer, pen, erase
+let currentTool = 'pointer'; 
 let ctx = null;
 let canvas = null;
 let isDrawing = false;
@@ -18,11 +18,9 @@ let penSettings = {
     charId: '',
     isWall: true,
     effectType: 'none', 
-    // ★追加: 移動設定
     moveType: 'fixed', 
     moveSpeed: 2,
     moveRange: 3,
-    
     hasEvent: false,
     eventTrigger: 'touch',
     eventRepeat: 'once',
@@ -39,8 +37,7 @@ export function initMapEditor() {
     if (!canvas) return;
     ctx = canvas.getContext('2d');
 
-    // --- イベントリスナー ---
-    
+    // イベントリスナー
     document.getElementById('create-map-btn').addEventListener('click', createNewMap);
     
     document.getElementById('map-list-select').addEventListener('change', (e) => {
@@ -104,7 +101,16 @@ export function initMapEditor() {
     toggleEditorVisibility(false);
 }
 
-function toggleEditorVisibility(show) {
+// ★追加: 外部から呼び出してエディタ状態をリセット・更新する関数
+export function resetMapEditor() {
+    currentMapId = null;
+    selectedObject = null;
+    renderMapList(); // リストを最新データで更新
+    toggleEditorVisibility(false); // 編集画面を閉じる
+}
+
+// ★export追加
+export function toggleEditorVisibility(show) {
     const ui = document.getElementById('map-editor-ui');
     const canvasEl = document.getElementById('map-canvas');
     const placeholder = document.getElementById('map-placeholder');
@@ -146,17 +152,21 @@ function createNewMap() {
     loadMap(id);
 }
 
-function renderMapList() {
+// ★export追加
+export function renderMapList() {
     const select = document.getElementById('map-list-select');
+    if (!select) return;
     const currentVal = select.value;
     
     select.innerHTML = '<option value="">-- マップ選択 --</option>';
     const maps = state.getProjectData().maps;
-    for (const id in maps) {
-        select.add(new Option(maps[id].name, id));
+    if (maps) {
+        for (const id in maps) {
+            select.add(new Option(maps[id].name, id));
+        }
     }
     
-    if(maps[currentVal]) {
+    if(maps && maps[currentVal]) {
         select.value = currentVal;
     }
 }
@@ -274,7 +284,6 @@ function updateFormFromData(data) {
     document.getElementById('obj-is-wall').checked = !!data.isWall;
     document.getElementById('obj-effect-type').value = data.effectType || 'none';
 
-    // ★追加: 移動設定の反映
     const moveType = data.moveType || 'fixed';
     document.getElementById('obj-move-type').value = moveType;
     document.getElementById('obj-move-details').style.display = (moveType !== 'fixed') ? 'block' : 'none';
@@ -321,7 +330,6 @@ function syncDataFromForm() {
     target.isWall = document.getElementById('obj-is-wall').checked;
     target.effectType = document.getElementById('obj-effect-type').value;
 
-    // ★追加: 移動設定の保存
     target.moveType = document.getElementById('obj-move-type').value;
     document.getElementById('obj-move-details').style.display = (target.moveType !== 'fixed') ? 'block' : 'none';
     if(target.moveType !== 'fixed') {
@@ -442,7 +450,6 @@ function drawMap() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // ★追加: 移動タイプの可視化
         if (obj.moveType && obj.moveType !== 'fixed') {
             ctx.fillStyle = '#000';
             let icon = '';
