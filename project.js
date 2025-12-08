@@ -3,6 +3,8 @@
 
 import * as state from './state.js';
 import * as ui from './ui.js';
+import { pixelsToWebPDataURL } from './utils.js'; 
+import { resetMapEditor } from './mapEditor.js'; // ★追加: マップエディタのリセット関数をインポート
 
 /**
  * 現在のプロジェクトデータをJSONファイルとして保存する
@@ -10,18 +12,14 @@ import * as ui from './ui.js';
  */
 function saveProject() {
     try {
-        // 現在の日時を取得してデフォルトのファイル名にする (例: project_20231025)
         const now = new Date();
         const defaultName = `project_${now.getFullYear()}${String(now.getMonth()+1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 
-        // ダイアログを出してユーザーに名前を入力させる
         let fileName = prompt("保存するファイル名を入力してください（拡張子 .json は不要）", defaultName);
 
-        // キャンセルされた場合や空欄の場合は処理を中止
         if (fileName === null) return; 
         if (fileName.trim() === "") fileName = defaultName;
 
-        // 拡張子 (.json) がついていなければ付ける
         if (!fileName.endsWith('.json')) {
             fileName += '.json';
         }
@@ -33,7 +31,7 @@ function saveProject() {
         const link = document.createElement('a');
         
         link.href = URL.createObjectURL(blob);
-        link.download = fileName; // ★ここで入力された名前を使用
+        link.download = fileName; 
         
         document.body.appendChild(link);
         link.click();
@@ -42,6 +40,7 @@ function saveProject() {
         URL.revokeObjectURL(link.href);
 
     } catch (error) {
+        console.error("プロジェクトの保存に失敗しました:", error);
         alert("プロジェクトの保存中にエラーが発生しました。");
     }
 }
@@ -65,6 +64,38 @@ function loadProject(event) {
                 throw new Error("無効なプロジェクトデータです");
             }
 
+            // ★追加: 古いバージョンのデータに maps がない場合の対策
+            if (!newData.maps) {
+                newData.maps = {};
+            }
+
+            // スプライトキャンバスJSON形式の自動変換 (DataURL化)
+            const assetTypes = ['characters', 'backgrounds', 'sounds'];
+            const assetData = newData.assets;
+            const defaultQuality = newData.settings && newData.settings.quality ? newData.settings.quality : 85; 
+            
+            for (const type of assetTypes) {
+                if (!assetData[type]) continue;
+                
+                for (const id in assetData[type]) {
+                    const asset = assetData[type][id];
+                    
+                    if (asset.isSpriteSheet === true && Array.isArray(asset.pixelData) && asset.width && asset.height) {
+                        const webPDataUrl = pixelsToWebPDataURL(asset.pixelData, asset.width, asset.height, defaultQuality);
+                        
+                        assetData[type][id] = {
+                            name: asset.name || id,
+                            data: webPDataUrl, 
+                            cols: asset.cols || 1,
+                            rows: asset.rows || 1,
+                            fps: asset.fps || 12,
+                            loop: asset.loop !== undefined ? asset.loop : true
+                        };
+                        console.log(`アセット[${type}][${id}]をスプライトデータから復元しました。`);
+                    }
+                }
+            }
+
             state.setProjectData(newData);
             
             // 選択状態をリセット
@@ -73,17 +104,19 @@ function loadProject(event) {
             
             ui.renderAll();
             
-            // 読み込んだファイル名を表示すると親切
+            // ★追加: マップエディタのUIをリセット・更新
+            resetMapEditor();
+            
             alert(`「${file.name}」を読み込みました。`);
 
         } catch (err) {
+            console.error('プロジェクトファイルの読み込み、または解析に失敗しました:', err);
             alert('プロジェクトファイルの読み込みに失敗しました。有効なJSONファイルではありません。');
         }
     };
     
     reader.readAsText(file);
     
-    // 同じファイルを連続で読み込めるように、inputの値をクリア
     event.target.value = '';
 }
 
@@ -96,10 +129,6 @@ export function initProjectHandlers() {
     const loadInput = document.getElementById('load-project-input');
 
     saveButton.addEventListener('click', saveProject);
-
-    // 「読込」ボタンがクリックされたら、非表示のファイル入力要素をクリックさせる
     loadButton.addEventListener('click', () => loadInput.click());
-    
-    // ファイル入力要素でファイルが選択されたら(change)、読み込み処理を実行
     loadInput.addEventListener('change', loadProject);
 }
