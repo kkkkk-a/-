@@ -720,3 +720,11 @@ input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--pri
     transform: translateX(-2px); /* 左にちょこっと動くアニメーション */
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
+
+/* ドラッグ＆ドロップ時のハイライト */
+.asset-uploader.drag-over {
+    background-color: #e6f7ff;
+    border: 2px dashed #1890ff;
+    transform: scale(1.02);
+    transition: all 0.2s;
+}
