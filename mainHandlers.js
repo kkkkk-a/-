@@ -4,15 +4,20 @@ import * as state from './state.js';
 import * as ui from './ui.js';
 import { initScenarioHandlers } from './scenarioHandlers.js';
 import { initVariableHandlers } from './variableHandlers.js';
-
+import { refreshMapEditorUI } from './mapEditor.js';
 function switchMode(newMode) {
     state.setActiveMode(newMode);
-    ui.switchModeUI(newMode); // ui.jsの関数を呼び出すだけ
+    ui.switchModeUI(newMode);
 
-    // プレビューモードに切り替えたときに、最新の状態でプレビューを更新する
+    // ★修正: プレビューモードなら更新、それ以外ならプレビューを破棄して軽量化
     if (newMode === 'preview') {
-        // uiモジュールにプレビュー更新用の関数を新設して呼び出す
         ui.updatePreview(); 
+    } else {
+        // 編集モードに戻ったらiframeを消してメモリ/CPUを開放する
+        ui.clearPreview();
+    }
+    if (newMode === 'map') {
+        refreshMapEditorUI();
     }
 }
 
