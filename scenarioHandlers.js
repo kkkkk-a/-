@@ -1,4 +1,4 @@
-// scenarioHandlers.js
+// scenarioHandlers.js (Fixed: Rename Section Added)
 
 import * as state from './state.js';
 import * as ui from './ui.js';
@@ -16,7 +16,7 @@ function selectNode(id) {
     if (!id) return;
     state.setActiveNodeId(id);
     ui.updateAssetDropdowns();
-    ui.updateVariableSelects(); // 条件分岐などで使う変数リストの更新
+    ui.updateVariableSelects(); 
     ui.renderScenarioTree();
     ui.renderNodeEditor();
 }
@@ -32,21 +32,64 @@ function addSection() {
     selectSection(id);
 }
 
+// ★追加: 章の名前変更機能
+function renameSection() {
+    const activeSectionId = state.getActiveSectionId();
+    if (!activeSectionId) {
+        alert('名前を変更する章(セクション)を選択してください。');
+        return;
+    }
+    
+    const projectData = state.getProjectData();
+    const section = projectData.scenario.sections[activeSectionId];
+    
+    const newName = prompt('章の新しい名前を入力してください:', section.name);
+    if (!newName || newName.trim() === "") return;
+    
+    section.name = newName;
+    
+    // ツリーとエディタ（プルダウン内の章名など）を更新
+    ui.renderScenarioTree();
+    ui.updateAllNodeSelects();
+}
+
 function addNode() {
-    if (!state.getActiveSectionId()) {
+    const activeSectionId = state.getActiveSectionId();
+    if (!activeSectionId) {
         alert('ノードを追加する章(セクション)を選択してください。');
         return;
     }
-    const id = `node_${Date.now()}`;
-    const projectData = state.getProjectData();
-    projectData.scenario.sections[state.getActiveSectionId()].nodes[id] = { type: 'text', message: '' };
     
+    const projectData = state.getProjectData();
+    const section = projectData.scenario.sections[activeSectionId];
+
+    // 新しいノードのIDとデータを作成
+    const newId = `node_${Date.now()}`;
+    section.nodes[newId] = { type: 'text', message: '' };
+    
+    // ★修正: 自動接続ロジック
+    const autoLinkCheckbox = document.getElementById('auto-link-next-node');
+    const activeNodeId = state.getActiveNodeId();
+    
+    // チェックボックスがONで、かつノードが選択されている場合
+    if (autoLinkCheckbox && autoLinkCheckbox.checked && activeNodeId) {
+        const activeNode = section.nodes[activeNodeId];
+        // 選択中のノードのタイプに応じて、適切な「次のノードID」プロパティに設定
+        if (activeNode) {
+            if (activeNode.type === 'text' || activeNode.type === 'variable') {
+                activeNode.nextNodeId = newId;
+            }
+            // 選択肢や条件分岐は複雑なので、ここではテキストと変数操作ノードのみ対象とするのが安全
+        }
+    }
+
     // まだ開始ノードがなければ、これを開始ノードにする
     if (!projectData.scenario.startNodeId) { 
-        projectData.scenario.startNodeId = id; 
+        projectData.scenario.startNodeId = newId; 
     }
     
-    selectNode(id);
+    // 新しく作ったノードを選択状態にする
+    selectNode(newId);
 }
 
 function deleteNode() {
@@ -58,7 +101,6 @@ function deleteNode() {
         const projectData = state.getProjectData();
         delete projectData.scenario.sections[activeSectionId].nodes[activeNodeId];
         
-        // 開始ノードだった場合、設定を解除
         if (projectData.scenario.startNodeId === activeNodeId) {
             projectData.scenario.startNodeId = null;
         }
@@ -79,17 +121,12 @@ function updateNodeData(target) {
     const projectData = state.getProjectData();
     const node = projectData.scenario.sections[activeSectionId].nodes[activeNodeId];
 
-    // スマート選択（章絞り込み用プルダウン）の変更時はデータ更新しない
     if (target.classList.contains('section-filter-select')) return;
 
     if (node.type === 'text') {
-        // QuillのHTMLはイベントリスナー側で同期されるが、念のためここでも取得
-        // node.message = state.quill.root.innerHTML; 
-        
         const charEl = document.getElementById('node-character');
-     if(charEl) node.characterId = charEl.value;
+        if(charEl) node.characterId = charEl.value;
 
-        // ★追加: 表示名の保存
         const customNameEl = document.getElementById('node-custom-name');
         if(customNameEl) node.customName = customNameEl.value;
 
@@ -105,9 +142,11 @@ function updateNodeData(target) {
         const soundEl = document.getElementById('node-sound');
         if(soundEl) node.soundId = soundEl.value;
 
-        // スマート選択で動的に生成されたID
         const nextEl = document.getElementById('node-next-text');
         if(nextEl) node.nextNodeId = nextEl.value;
+        
+        const effectEl = document.getElementById('node-effect');
+        if(effectEl) node.effect = effectEl.value;
     } 
     else if (node.type === 'variable') {
         const targetEl = document.getElementById('var-target');
@@ -119,7 +158,6 @@ function updateNodeData(target) {
         const valEl = document.getElementById('var-value');
         if(valEl) node.value = valEl.value;
 
-        // スマート選択で動的に生成されたID
         const nextEl = document.getElementById('node-next-variable');
         if(nextEl) node.nextNodeId = nextEl.value;
     }
@@ -130,7 +168,6 @@ function updateNodeData(target) {
         }
     }
     else if (node.type === 'conditional') {
-        // ELSEの遷移先 (スマート選択で動的に生成されたID)
         if(target.id === 'node-next-conditional-else') {
             node.elseNextNodeId = target.value;
         } else {
@@ -140,7 +177,7 @@ function updateNodeData(target) {
             }
         }
     }
-        else if (node.type === 'map') {
+    else if (node.type === 'map') {
         const destEl = document.getElementById('node-map-dest');
         if(destEl) node.mapId = destEl.value;
         
@@ -149,7 +186,7 @@ function updateNodeData(target) {
     }
 }
 
-// --- ノード並べ替え機能 (ドラッグ＆ドロップ対応) ---
+// --- ノード並べ替え機能 ---
 
 function reorderNodes(sectionId, draggedId, targetId, position) {
     const projectData = state.getProjectData();
@@ -164,29 +201,24 @@ function reorderNodes(sectionId, draggedId, targetId, position) {
     
     if (fromIndex === -1 || toIndex === -1) return;
 
-    // 配列操作で順番を入れ替える
-    nodeIds.splice(fromIndex, 1); // 元の場所から削除
+    nodeIds.splice(fromIndex, 1);
     
-    // 挿入位置の計算
     let insertIndex = toIndex;
     if (fromIndex < toIndex) {
-        // 上から下へ移動: 削除によってターゲットのインデックスが1つ減っている可能性があるため調整
         insertIndex = (position === 'after' ? toIndex : toIndex - 1);
     } else {
-        // 下から上へ移動
         insertIndex = (position === 'after' ? toIndex + 1 : toIndex);
     }
 
-    nodeIds.splice(insertIndex, 0, draggedId); // 新しい場所に挿入
+    nodeIds.splice(insertIndex, 0, draggedId);
 
-    // 新しい順序でオブジェクトを再構築 (JSのオブジェクトは挿入順を維持する性質を利用)
     const newNodes = {};
     nodeIds.forEach(id => {
         newNodes[id] = oldNodes[id];
     });
 
-    section.nodes = newNodes; // 反映
-    ui.renderScenarioTree();  // 再描画
+    section.nodes = newNodes;
+    ui.renderScenarioTree();
 }
 
 // --- メイン初期化関数 ---
@@ -196,15 +228,13 @@ export function initScenarioHandlers() {
     const editorPanel = document.getElementById('node-editor');
     const treeContainer = document.getElementById('scenario-tree');
 
-    // 1. サイドバー（ツリー）のクリックイベント
     sidebar.addEventListener('click', e => {
-        // 章追加
         if (e.target.id === 'add-section-btn') addSection();
-        // ノード追加
+        // ★追加: 名前変更ボタンのイベント
+        if (e.target.id === 'rename-section-btn') renameSection();
+        
         if (e.target.id === 'add-node-btn') addNode();
-        // 章選択
         if (e.target.matches('.tree-section-header')) selectSection(e.target.dataset.id);
-        // ノード選択
         if (e.target.closest('.tree-node')) {
             const nodeEl = e.target.closest('.tree-node');
             const sectionId = nodeEl.closest('.tree-section').querySelector('.tree-section-header').dataset.id;
@@ -213,7 +243,6 @@ export function initScenarioHandlers() {
         }
     });
 
-    // 2. エディタパネルの変更イベント (input, select, checkbox)
     editorPanel.addEventListener('change', e => {
         const activeNodeId = state.getActiveNodeId();
         const activeSectionId = state.getActiveSectionId();
@@ -221,30 +250,25 @@ export function initScenarioHandlers() {
         const projectData = state.getProjectData();
         const node = projectData.scenario.sections[activeSectionId].nodes[activeNodeId];
         
-        // 開始ノード設定チェックボックス
         if (e.target.id === 'is-start-node') {
             projectData.scenario.startNodeId = e.target.checked ? activeNodeId : null;
             ui.renderScenarioTree();
             return;
         }
         
-        // ノードタイプ変更
         if (e.target.id === 'node-type') {
             node.type = e.target.value;
-            // データ構造の初期化
             if (node.type === 'choice' && !node.choices) node.choices = [];
             if (node.type === 'conditional' && !node.conditions) node.conditions = [];
             
             ui.renderNodeEditor();
-            ui.renderScenarioTree(); // アイコンなどを更新するため
+            ui.renderScenarioTree(); 
             return;
         }
         
-        // その他のデータ更新
         updateNodeData(e.target);
     });
 
-    // 3. エディタパネルのクリックイベント (ボタン操作)
     editorPanel.addEventListener('click', e => {
         const activeNodeId = state.getActiveNodeId();
         const activeSectionId = state.getActiveSectionId();
@@ -258,19 +282,18 @@ export function initScenarioHandlers() {
                 if (node.type === 'choice') {
                     node.choices.push({ text: '新しい選択肢', nextNodeId: '' });
                     ui.renderChoicesEditor(node.choices);
-                    ui.renderScenarioTree(); // 選択肢数を更新表示
+                    ui.renderScenarioTree();
                 }
                 break;
             case 'add-condition-btn':
                 if (node.type === 'conditional') {
                     node.conditions.push({ variable: '', operator: '==', compareValue: '', nextNodeId: '' });
                     ui.renderConditionsEditor(node.conditions);
-                    ui.renderScenarioTree(); // 条件数を更新表示
+                    ui.renderScenarioTree();
                 }
                 break;
         }
         
-        // 削除ボタン (選択肢や条件の削除)
         if (e.target.matches('.danger-button')) {
             const index = parseInt(e.target.dataset.index, 10);
             if (isNaN(index)) return;
@@ -287,7 +310,6 @@ export function initScenarioHandlers() {
         }
     });
 
-    // 4. Quillエディタの変更監視
     if (state.quill) {
         state.quill.on('text-change', () => {
             const activeNodeId = state.getActiveNodeId();
@@ -296,14 +318,12 @@ export function initScenarioHandlers() {
                 const projectData = state.getProjectData();
                 const node = projectData.scenario.sections[activeSectionId].nodes[activeNodeId];
                 if (node && node.type === 'text') {
-                    // HTMLをそのまま保存
                     node.message = state.quill.root.innerHTML;
                 }
             }
         });
     }
 
-    // 5. ドラッグ＆ドロップによる並べ替え機能
     let draggedItem = null;
 
     if (treeContainer) {
@@ -322,7 +342,6 @@ export function initScenarioHandlers() {
                 draggedItem.classList.remove('dragging');
                 draggedItem = null;
             }
-            // ガイド表示をクリア
             document.querySelectorAll('.tree-node').forEach(el => {
                 el.style.borderTop = '';
                 el.style.borderBottom = '';
@@ -330,20 +349,17 @@ export function initScenarioHandlers() {
         });
 
         treeContainer.addEventListener('dragover', e => {
-            e.preventDefault(); // ドロップを許可するために必須
+            e.preventDefault(); 
             const targetNode = e.target.closest('.tree-node');
             if (!targetNode || !draggedItem || targetNode === draggedItem) return;
 
-            // 同じセクション内かどうかチェック（セクションまたぎの移動は今回は未対応とする）
             const sourceSection = draggedItem.closest('.tree-section');
             const targetSection = targetNode.closest('.tree-section');
             if (sourceSection !== targetSection) return;
 
-            // マウス位置が要素の上半分か下半分かを判定
             const rect = targetNode.getBoundingClientRect();
             const next = (e.clientY - rect.top) / (rect.height) > 0.5;
             
-            // 視覚的なガイド表示
             targetNode.style.borderTop = next ? '' : '2px solid #1890ff';
             targetNode.style.borderBottom = next ? '2px solid #1890ff' : '';
             targetNode.dataset.dropPos = next ? 'after' : 'before';
@@ -362,14 +378,12 @@ export function initScenarioHandlers() {
             const targetNode = e.target.closest('.tree-node');
             if (!targetNode || !draggedItem || targetNode === draggedItem) return;
 
-            // スタイルリセット
             targetNode.style.borderTop = '';
             targetNode.style.borderBottom = '';
 
             const sourceSection = draggedItem.closest('.tree-section');
             const targetSection = targetNode.closest('.tree-section');
             
-            // セクション間移動はガード
             if (sourceSection !== targetSection) return;
 
             const draggedId = draggedItem.dataset.id;
@@ -377,7 +391,6 @@ export function initScenarioHandlers() {
             const position = targetNode.dataset.dropPos || 'after';
             const sectionId = targetSection.querySelector('.tree-section-header').dataset.id;
             
-            // 並べ替え実行
             reorderNodes(sectionId, draggedId, targetId, position);
         });
     }
