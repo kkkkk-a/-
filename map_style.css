@@ -108,3 +108,31 @@
     user-select: none;
 }
 .accordion-header:hover { background: #e0e0e0; }
+
+/* --- モバイル & タブレット縦向き対応 (画面幅が900px以下の場合) --- */
+@media (max-width: 900px) {
+    .map-editor-layout {
+        /* 横並び(flex)から縦積み(block)に変更 */
+        display: block;
+        height: auto; /* 高さを自動調整 */
+        overflow-y: auto; /* 全体をスクロール可能に */
+    }
+
+    .map-sidebar {
+        width: 100%; /* 幅を画面いっぱいに */
+        height: auto; /* 高さはコンテンツに合わせる */
+        max-height: 50vh; /* ただし画面の半分以上は占めないようにする */
+        border-right: none;
+        border-bottom: 2px solid var(--border-color); /* 下に境界線を追加 */
+        box-sizing: border-box; /* paddingを含めて幅100%にする */
+    }
+
+    .map-canvas-area {
+        /* 高さを確保 */
+        min-height: 50vh;
+    }
+    
+    #map-canvas {
+        margin: 10px; /* 余白を少し詰める */
+    }
+}
