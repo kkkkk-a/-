@@ -1,13 +1,12 @@
-// ui.js
+// ui.js (Ultimate Final Version - Fixed Map Object Select)
 
 import * as state from './state.js';
 import { generateGameHtml } from './export.js';
 
-// --- DOM要素のキャッシュ ---
+// --- DOM要素キャッシュ ---
 const elements = {
     navButtons: document.querySelectorAll('.nav-button'),
     modeContents: document.querySelectorAll('.mode-content'),
-    
     sectionList: document.getElementById('section-list'),
     scenarioTree: document.getElementById('scenario-tree'),
     nodeEditor: document.getElementById('node-editor'),
@@ -15,14 +14,12 @@ const elements = {
     isStartNodeCheckbox: document.getElementById('is-start-node'),
     nodeTypeSelect: document.getElementById('node-type'),
     allNodeTypeSettings: document.querySelectorAll('.node-type-settings'),
-    
     textNode: {
-        // ★変更: 単一のselectではなく、リストコンテナを使用
         charListContainer: document.getElementById('node-char-list-container'), 
         addCharBtn: document.getElementById('add-char-btn'),
-        
-        customName: document.getElementById('node-custom-name'), // 名前入力は維持（発言者名）
-        
+        charList3DContainer: document.getElementById('node-3d-char-list'),
+        addChar3DBtn: document.getElementById('add-3d-char-btn'),
+        customName: document.getElementById('node-custom-name'),
         background: document.getElementById('node-background'),
         bgm: document.getElementById('node-bgm'),
         sound: document.getElementById('node-sound'),
@@ -30,54 +27,39 @@ const elements = {
     },
     choiceNode: { editor: document.getElementById('choices-editor') },
     variableNode: {
-        target: document.getElementById('var-target'),
-        operator: document.getElementById('var-operator'),
-        value: document.getElementById('var-value'),
-        nextContainer: document.getElementById('container-next-variable')
+        target: document.getElementById('var-target'), operator: document.getElementById('var-operator'),
+        value: document.getElementById('var-value'), nextContainer: document.getElementById('container-next-variable')
     },
     conditionalNode: {
         editor: document.getElementById('conditions-editor'),
         elseNextContainer: document.getElementById('container-next-conditional-else')
     },
-    mapNode: {
-        dest: document.getElementById('node-map-dest'),
-        spawn: document.getElementById('node-map-spawn')
-    },
-    
+    mapNode: { dest: document.getElementById('node-map-dest'), spawn: document.getElementById('node-map-spawn') },
     mapBgSelect: document.getElementById('map-bg-select'),
-
+    // ★追加: マップエディタのオブジェクト画像選択肢
+    mapObjCharSelect: document.getElementById('obj-char-select'),
+    
     variablesList: document.getElementById('variables-list'),
     editorPlaceholder: document.getElementById('editor-placeholder'),
     previewWindow: document.querySelector('.preview-window'),
-
     helpBtn: document.getElementById('open-help-btn'),
     helpModal: document.getElementById('help-modal'),
     closeHelpBtn: document.querySelector('.close-modal')
 };
 
 // --- ヘルパー関数 ---
-
 export function createLinkedSelects(container, selectId, currentValue, dataset = {}) {
-    if (!container) return;
-    container.innerHTML = ''; 
-
+    if (!container) return; container.innerHTML = ''; 
     const projectData = state.getProjectData();
-    const activeSectionId = state.getActiveSectionId();
-
     const sectionSelect = document.createElement('select');
     sectionSelect.className = 'section-filter-select';
     sectionSelect.style.marginBottom = '5px';
     sectionSelect.style.backgroundColor = '#f0f8ff';
-
     const nodeSelect = document.createElement('select');
     if (selectId) nodeSelect.id = selectId;
+    Object.keys(dataset).forEach(key => { nodeSelect.dataset[key] = dataset[key]; });
     
-    Object.keys(dataset).forEach(key => {
-        nodeSelect.dataset[key] = dataset[key];
-    });
-
-    let targetSectionId = activeSectionId; 
-    
+    let targetSectionId = state.getActiveSectionId(); 
     if (currentValue) {
         for (const secId in projectData.scenario.sections) {
             if (projectData.scenario.sections[secId].nodes[currentValue]) {
@@ -100,46 +82,21 @@ export function createLinkedSelects(container, selectId, currentValue, dataset =
 
     const updateNodeOptions = (secId) => {
         nodeSelect.innerHTML = '<option value="">(なし / 終了)</option>';
-        
         const section = projectData.scenario.sections[secId];
         if (section && section.nodes) {
             Object.keys(section.nodes).forEach(nodeId => {
                 const node = section.nodes[nodeId];
-                
-                let icon = '📄';
-                let summary = node.type;
-                
-                switch(node.type) {
-                    case 'text':
-                        icon = '💬';
-                        const tmp = document.createElement("div");
-                        tmp.innerHTML = node.message || '';
-                        let text = tmp.textContent.replace(/\s+/g, ' ').trim();
-                        if (text.length > 15) text = text.substring(0, 15) + '...';
-                        summary = text;
-                        break;
-                    case 'choice':
-                        icon = '🔀';
-                        summary = `選択肢 ${node.choices ? node.choices.length : 0}個`;
-                        break;
-                    case 'variable':
-                        icon = '🔢';
-                        summary = `${node.targetVariable||''} ${node.operator||''} ${node.value||''}`;
-                        break;
-                    case 'conditional':
-                        icon = '❓';
-                        summary = `IF分岐`;
-                        break;
-                    case 'map':
-                        icon = '🗺️';
-                        summary = 'マップ移動';
-                        break;
+                let icon = '📄'; let summary = node.type;
+                if(node.type === 'text') {
+                    icon = '💬';
+                    const tmp = document.createElement("div"); tmp.innerHTML = node.message || '';
+                    summary = tmp.textContent.replace(/\s+/g, ' ').trim().substring(0, 15) + '...';
+                } else if(node.type === 'choice') {
+                    icon = '🔀'; summary = `選択肢 ${node.choices ? node.choices.length : 0}個`;
                 }
-
                 const option = document.createElement('option');
                 option.value = nodeId;
                 option.textContent = `${nodeId.slice(-4)}: ${icon} ${summary}`;
-                
                 if (nodeId === currentValue) option.selected = true;
                 nodeSelect.appendChild(option);
             });
@@ -147,237 +104,192 @@ export function createLinkedSelects(container, selectId, currentValue, dataset =
     };
 
     updateNodeOptions(targetSectionId);
-
     sectionSelect.addEventListener('change', (e) => {
         updateNodeOptions(e.target.value);
         nodeSelect.value = "";
         nodeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     });
-
-    container.appendChild(sectionSelect);
-    container.appendChild(nodeSelect);
+    container.appendChild(sectionSelect); container.appendChild(nodeSelect);
 }
 
 export function populateAssetSelect(selectElement, type, defaultText = "なし") {
     if (!selectElement) return;
     const projectData = state.getProjectData();
     const currentVal = selectElement.value;
-    
     selectElement.innerHTML = '';
     selectElement.add(new Option(defaultText, ''));
-
     const assets = projectData.assets[type];
     if (assets) {
         for (const id in assets) {
-            const asset = assets[id];
-            const displayName = asset.isSpriteSheet ? `${asset.name} (Sprite)` : asset.name;
-            selectElement.add(new Option(displayName, id));
+            selectElement.add(new Option(assets[id].name, id));
         }
     }
-    // 値の復元は呼び出し側で行うか、ここで行うなら注意が必要
-    if (currentVal) selectElement.value = currentVal;
+    if (currentVal && assets && assets[currentVal]) { selectElement.value = currentVal; }
 }
 
-// --- ★新機能: キャラクターリストのレンダリング ---
 function renderCharacterListEditor(characters) {
     const container = elements.textNode.charListContainer;
-    if (!container) return;
-    container.innerHTML = '';
-
+    if (!container) return; container.innerHTML = '';
     if (!characters || characters.length === 0) {
-        container.innerHTML = '<div style="color:#999; font-size:0.9em; padding:5px;">表示するキャラクターがいません</div>';
+        container.innerHTML = '<div style="color:#999; font-size:0.9em; padding:5px;">表示する2Dキャラクターがいません</div>';
         return;
     }
-
     characters.forEach((charData, index) => {
         const wrapper = document.createElement('div');
-        wrapper.style.marginBottom = '8px';
-        wrapper.style.background = '#f9f9f9';
-        wrapper.style.padding = '8px';
-        wrapper.style.borderRadius = '4px';
-        wrapper.style.border = '1px solid #ddd';
-
-        // --- 1行目: キャラ選択・削除 ---
-        const row1 = document.createElement('div');
-        row1.className = 'form-group-row';
-        row1.style.marginBottom = '5px';
-
-        // ★修正: labelで囲むことで、文字クリックでも反応させる
-        const charLabel = document.createElement('label');
-        charLabel.style.flex = '1';
-        charLabel.style.display = 'flex'; // レイアウト崩れ防止
-        charLabel.style.alignItems = 'center';
-        charLabel.style.gap = '5px';
-        charLabel.style.cursor = 'pointer';
-
-        const charSelect = document.createElement('select');
-        charSelect.style.flex = '1'; // 幅いっぱい
+        wrapper.style.cssText = 'margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:4px; border:1px solid #ddd;';
+        const row1 = document.createElement('div'); row1.className = 'form-group-row'; row1.style.marginBottom = '5px';
+        const charLabel = document.createElement('label'); charLabel.style.cssText = 'flex:1; display:flex; align-items:center; gap:5px; cursor:pointer;';
+        const charSelect = document.createElement('select'); charSelect.style.flex = '1';
         populateAssetSelect(charSelect, 'characters', '(画像選択)');
         charSelect.value = charData.characterId || '';
         charSelect.onchange = (e) => { charData.characterId = e.target.value; };
-
-        // ラベルの中にテキストなどは入れず、select自体を大きく使うレイアウトなので
-        // ここでは単にSelectをappendChildするだけでも良いが、将来的にラベル文字を入れるならこうする
         charLabel.appendChild(charSelect);
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'danger-button';
-        delBtn.textContent = '削除';
-        delBtn.style.padding = '2px 8px';
-        delBtn.style.fontSize = '0.8em';
-        delBtn.onclick = () => {
-            characters.splice(index, 1);
-            renderCharacterListEditor(characters);
-        };
-
-        row1.appendChild(charLabel); // labelを追加
-        row1.appendChild(delBtn);
-
-        // --- 2行目: 9方向位置選択 ---
-        const row2 = document.createElement('div');
-        row2.style.marginBottom = '5px';
-        
-        // ★修正: labelで囲む
-        const posLabel = document.createElement('label');
-        posLabel.style.width = '100%';
-        posLabel.style.cursor = 'pointer';
-        
-        const posSelect = document.createElement('select');
-        posSelect.style.width = '100%';
+        const delBtn = document.createElement('button'); delBtn.className = 'danger-button'; delBtn.textContent = '削除'; delBtn.style.cssText = 'padding:2px 8px; font-size:0.8em;';
+        delBtn.onclick = () => { characters.splice(index, 1); renderCharacterListEditor(characters); };
+        row1.appendChild(charLabel); row1.appendChild(delBtn);
+        const row2 = document.createElement('div'); row2.style.marginBottom = '5px';
+        const posLabel = document.createElement('label'); posLabel.style.width = '100%'; posLabel.style.cursor = 'pointer';
+        const posSelect = document.createElement('select'); posSelect.style.width = '100%';
         const positions = {
-            'bottom-left': '↙ 左下 (標準)',
-            'bottom-center': '⬇ 中央下 (標準)',
-            'bottom-right': '↘ 右下 (標準)',
-            'center-left': '⬅ 左中',
-            'center': '⏺ 中央',
-            'center-right': '➡ 右中',
-            'top-left': '↖ 左上',
-            'top-center': '⬆ 中央上',
-            'top-right': '↗ 右上'
+            'bottom-left': '↙ 左下', 'bottom-center': '⬇ 中央下', 'bottom-right': '↘ 右下',
+            'center-left': '⬅ 左中', 'center': '⏺ 中央', 'center-right': '➡ 右中',
+            'top-left': '↖ 左上', 'top-center': '⬆ 中央上', 'top-right': '↗ 右上'
         };
-        for (const [key, label] of Object.entries(positions)) {
-            posSelect.add(new Option(label, key));
-        }
+        for (const [key, label] of Object.entries(positions)) { posSelect.add(new Option(label, key)); }
         posSelect.value = charData.position || 'bottom-center';
         posSelect.onchange = (e) => { charData.position = e.target.value; };
-        
-        posLabel.appendChild(posSelect);
-        row2.appendChild(posLabel);
-
-        // --- 3行目: 詳細調整 (拡大率, X, Y) ---
-        const row3 = document.createElement('div');
-        row3.style.display = 'flex';
-        row3.style.gap = '10px'; // 間隔を少し広げる
-        row3.style.alignItems = 'center';
-        row3.style.fontSize = '0.9em';
-        row3.style.marginBottom = '5px';
-
-        // ★ヘルパー関数: ラベル付き入力欄を作る
-        const createLabeledInput = (iconText, value, onChange, title) => {
-            const label = document.createElement('label');
-            label.style.display = 'flex';
-            label.style.alignItems = 'center';
-            label.style.gap = '2px';
-            label.style.cursor = 'pointer';
-            label.title = title; // ホバー時に説明を表示
-
-            const span = document.createElement('span');
-            span.textContent = iconText;
-            
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.value = value;
-            input.style.width = '50px';
-            input.style.padding = '2px';
-            input.onchange = onChange;
-
-            label.appendChild(span);
-            label.appendChild(input);
-            return label;
+        posLabel.appendChild(posSelect); row2.appendChild(posLabel);
+        const row3 = document.createElement('div'); row3.style.cssText = 'display:flex; gap:10px; align-items:center; font-size:0.9em; margin-bottom:5px;';
+        const createInp = (icon, val, cb, tip) => {
+            const lbl = document.createElement('label'); lbl.style.cssText = 'display:flex; align-items:center; gap:2px; cursor:pointer;'; lbl.title = tip;
+            const span = document.createElement('span'); span.textContent = icon;
+            const inp = document.createElement('input'); inp.type = 'number'; inp.value = val; inp.style.width = '50px'; inp.style.padding = '2px'; inp.onchange = cb;
+            lbl.appendChild(span); lbl.appendChild(inp); return lbl;
         };
-
-        // 拡大率
-        const scaleLabel = createLabeledInput(
-            '🔍', 
-            charData.scale !== undefined ? charData.scale : 100, 
-            (e) => { charData.scale = parseInt(e.target.value) || 100; },
-            "拡大率 (%)"
-        );
-
-        // 横(X)
-        const xLabel = createLabeledInput(
-            '↔', 
-            charData.x || 0, 
-            (e) => { charData.x = parseInt(e.target.value) || 0; },
-            "横位置調整 (px)"
-        );
-
-        // 縦(Y)
-        const yLabel = createLabeledInput(
-            '↕', 
-            charData.y || 0, 
-            (e) => { charData.y = parseInt(e.target.value) || 0; },
-            "縦位置調整 (px)"
-        );
-
-        row3.appendChild(scaleLabel);
-        row3.appendChild(xLabel);
-        row3.appendChild(yLabel);
-
-        // --- 4行目: マスク設定 ---
-        const row4 = document.createElement('div');
-        row4.style.marginTop = '5px';
-        row4.style.borderTop = '1px dashed #ccc';
-        row4.style.paddingTop = '5px';
-
-        // ★修正: labelで囲む
-        const maskLabel = document.createElement('label');
-        maskLabel.style.display = 'flex';
-        maskLabel.style.alignItems = 'center';
-        maskLabel.style.gap = '5px';
-        maskLabel.style.cursor = 'pointer';
-        maskLabel.style.width = '100%';
-
-        const maskIcon = document.createElement('span');
-        maskIcon.textContent = '🎭 Mask:';
-        maskIcon.style.fontSize = '0.8em';
-        
-        const maskSelect = document.createElement('select');
-        maskSelect.style.flex = '1';
+        row3.appendChild(createInp('🔍', charData.scale!==undefined?charData.scale:100, e=>charData.scale=parseInt(e.target.value)||100, "拡大率 (%)"));
+        row3.appendChild(createInp('↔', charData.x||0, e=>charData.x=parseInt(e.target.value)||0, "横位置調整 (px)"));
+        row3.appendChild(createInp('↕', charData.y||0, e=>charData.y=parseInt(e.target.value)||0, "縦位置調整 (px)"));
+        const row4 = document.createElement('div'); row4.style.cssText = 'margin-top:5px; border-top:1px dashed #ccc; padding-top:5px;';
+        const maskLabel = document.createElement('label'); maskLabel.style.cssText = 'display:flex; align-items:center; gap:5px; cursor:pointer; width:100%;';
+        const maskIcon = document.createElement('span'); maskIcon.textContent = '🎭 Mask:'; maskIcon.style.fontSize = '0.8em';
+        const maskSelect = document.createElement('select'); maskSelect.style.flex = '1';
         populateAssetSelect(maskSelect, 'characters', '(マスクなし)');
         maskSelect.value = charData.maskId || '';
         maskSelect.onchange = (e) => { charData.maskId = e.target.value; };
-
-        maskLabel.appendChild(maskIcon);
-        maskLabel.appendChild(maskSelect);
-        row4.appendChild(maskLabel);
-
-        wrapper.appendChild(row1);
-        wrapper.appendChild(row2);
-        wrapper.appendChild(row3);
-        wrapper.appendChild(row4);
+        maskLabel.appendChild(maskIcon); maskLabel.appendChild(maskSelect); row4.appendChild(maskLabel);
+        wrapper.appendChild(row1); wrapper.appendChild(row2); wrapper.appendChild(row3); wrapper.appendChild(row4);
         container.appendChild(wrapper);
     });
 }
 
+function render3DCharacterListEditor(characters3d) {
+    const container = elements.textNode.charList3DContainer;
+    if (!container) return; container.innerHTML = '';
+    if (!characters3d || characters3d.length === 0) return;
 
-// --- メイン UI レンダリング関数 ---
+    characters3d.forEach((charData, index) => {
+        const wrapper = document.createElement('div'); 
+        wrapper.style.cssText = 'margin-bottom:10px; background:#fcfcfc; padding:8px; border-radius:4px; border:1px solid #adc6ff;';
+        
+        // --- モデル選択 ---
+        const row1 = document.createElement('div'); 
+        row1.style.cssText = 'display:flex; gap:5px; margin-bottom:5px;';
+        const modelSelect = document.createElement('select'); 
+        modelSelect.style.flex = '1'; 
+        populateAssetSelect(modelSelect, 'models', '(3Dモデル選択)'); 
+        modelSelect.value = charData.modelId || '';
+        
+        const delBtn = document.createElement('button'); 
+        delBtn.className = 'danger-button'; 
+        delBtn.textContent = '×'; 
+        delBtn.onclick = () => { characters3d.splice(index, 1); render3DCharacterListEditor(characters3d); };
+        row1.appendChild(modelSelect); 
+        row1.appendChild(delBtn);
 
-export function renderAll() {
-    renderScenarioTree();
-    renderNodeEditor();
-    renderVariablesList();
-    renderAssetList('characters');
-    renderAssetList('backgrounds');
-    renderAssetList('sounds');
-    updateAssetDropdowns();
+        // --- ★表情選択 (ここからが新規追加) ---
+        const rowExpr = document.createElement('div');
+        rowExpr.style.cssText = 'display:flex; align-items:center; gap:5px; margin-bottom:5px;';
+        const exprLabel = document.createElement('span');
+        exprLabel.textContent = '😀 表情:';
+        exprLabel.style.cssText = 'font-size:0.8em; width:50px;';
+        const exprSelect = document.createElement('select');
+        exprSelect.style.flex = '1';
+        
+        // 表情プルダウンを更新する関数
+        const updateExpressions = (modelId) => {
+            exprSelect.innerHTML = '<option value="">(デフォルト)</option>';
+            // state.js でエクスポートしたキャッシュから表情リストを取得
+            const expressions = state.modelExpressionCache[modelId]; 
+            if (expressions) {
+                expressions.forEach(name => {
+                    const option = new Option(name, name);
+                    if (name === charData.expression) option.selected = true;
+                    exprSelect.add(option);
+                });
+            }
+        };
+        
+        updateExpressions(charData.modelId); // 初期表示
+        
+        // モデルが変更されたら、表情リストも更新する
+        modelSelect.onchange = (e) => { 
+            charData.modelId = e.target.value;
+            // 選択肢をリフレッシュ
+            updateExpressions(e.target.value);
+            // 表情の選択をリセット
+            charData.expression = '';
+        };
+
+        // 表情が変更されたら保存
+        exprSelect.onchange = (e) => {
+            charData.expression = e.target.value;
+        };
+        
+        rowExpr.appendChild(exprLabel);
+        rowExpr.appendChild(exprSelect);
+
+        // --- アニメーション選択 ---
+        const rowAnim = document.createElement('div'); rowAnim.style.cssText = 'display:flex; align-items:center; gap:5px; margin-bottom:5px;';
+        const animLabel = document.createElement('span'); animLabel.textContent = '🏃 Anim:'; animLabel.style.cssText = 'font-size:0.8em; width:50px;';
+        const animSelect = document.createElement('select'); animSelect.style.flex = '1'; populateAssetSelect(animSelect, 'animations', '(ポーズ/待機)'); animSelect.value = charData.animationId || ''; animSelect.onchange = (e) => { charData.animationId = e.target.value; };
+        rowAnim.appendChild(animLabel); rowAnim.appendChild(animSelect);
+
+        // --- 位置・回転・スケール ---
+        const createNum = (ph, val, cb, tip) => {
+            const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.placeholder = ph; inp.value = val !== undefined ? val : 0; inp.style.cssText = 'width:40px; font-size:0.8em;'; inp.title = tip; inp.onchange = cb; return inp;
+        };
+        const rowPos = document.createElement('div'); rowPos.style.cssText = 'display:flex; align-items:center; gap:3px; margin-bottom:3px;';
+        rowPos.innerHTML = '<span style="font-size:0.8em; width:30px; font-weight:bold;">Pos:</span>';
+        rowPos.appendChild(createNum('X', charData.posX, e=>charData.posX=parseFloat(e.target.value), '位置 X')); rowPos.appendChild(createNum('Y', charData.posY, e=>charData.posY=parseFloat(e.target.value), '位置 Y')); rowPos.appendChild(createNum('Z', charData.posZ, e=>charData.posZ=parseFloat(e.target.value), '位置 Z'));
+        const rowRot = document.createElement('div'); rowRot.style.cssText = 'display:flex; align-items:center; gap:3px; margin-bottom:3px;';
+        rowRot.innerHTML = '<span style="font-size:0.8em; width:30px; font-weight:bold;">Rot:</span>';
+        rowRot.appendChild(createNum('X', charData.rotX, e=>charData.rotX=parseFloat(e.target.value), '回転 X')); rowRot.appendChild(createNum('Y', charData.rotY, e=>charData.rotY=parseFloat(e.target.value), '回転 Y')); rowRot.appendChild(createNum('Z', charData.rotZ, e=>charData.rotZ=parseFloat(e.target.value), '回転 Z'));
+        const rowScale = document.createElement('div'); rowScale.style.cssText = 'display:flex; align-items:center; gap:3px;';
+        rowScale.innerHTML = '<span style="font-size:0.8em; width:30px; font-weight:bold;">Scl:</span>';
+        const scaleInp = createNum('1.0', charData.scale !== undefined ? charData.scale : 1.0, e=>charData.scale=parseFloat(e.target.value), 'サイズ (1.0 = 標準)'); scaleInp.style.flex = '1'; rowScale.appendChild(scaleInp);
+
+        // 要素を組み立て
+        wrapper.appendChild(row1); 
+        wrapper.appendChild(rowExpr); // ★表情セレクタを追加
+        wrapper.appendChild(rowAnim); 
+        wrapper.appendChild(rowPos); 
+        wrapper.appendChild(rowRot); 
+        wrapper.appendChild(rowScale); 
+        container.appendChild(wrapper);
+    });
 }
 
+// --- Main Render ---
+export function renderAll() {
+    renderScenarioTree(); renderNodeEditor(); renderVariablesList();
+    renderAssetList('characters'); renderAssetList('backgrounds'); renderAssetList('sounds');
+    renderAssetList('models'); renderAssetList('animations');
+    updateAssetDropdowns();
+}
 export function switchModeUI(newMode) {
     elements.navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === newMode));
     elements.modeContents.forEach(content => content.classList.toggle('active', content.id === `mode-${newMode}`));
 }
-
 function initHelpSystem() {
     if (elements.helpBtn && elements.helpModal && elements.closeHelpBtn) {
         elements.helpBtn.addEventListener('click', () => elements.helpModal.classList.remove('hidden'));
@@ -385,467 +297,181 @@ function initHelpSystem() {
         window.addEventListener('click', (e) => { if (e.target === elements.helpModal) elements.helpModal.classList.add('hidden'); });
     }
 }
-
 export function updatePreview() {
     const projectData = state.getProjectData();
     const activeNodeId = state.getActiveNodeId();
-    
-    const iframe = document.createElement('iframe');
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
-    
+    const iframe = document.createElement('iframe'); iframe.style.width = '100%'; iframe.style.height = '100%'; iframe.style.border = 'none';
     const startNode = activeNodeId || projectData.scenario.startNodeId;
-    
-    if (!startNode) {
-        elements.previewWindow.innerHTML = '<div style="color:white; padding:20px; text-align:center;">開始ノードが設定されていないか、ノードが選択されていません。</div>';
-        return;
-    }
-
+    if (!startNode) { elements.previewWindow.innerHTML = '<div style="color:white; padding:20px;">開始ノード設定なし</div>'; return; }
     const gameHtml = generateGameHtml(projectData, startNode);
     const blob = new Blob([gameHtml], { type: 'text/html' });
     iframe.src = URL.createObjectURL(blob);
-
-    elements.previewWindow.innerHTML = '';
-    elements.previewWindow.appendChild(iframe);
+    elements.previewWindow.innerHTML = ''; elements.previewWindow.appendChild(iframe);
+}
+export function clearPreview() {
+    if (elements.previewWindow) {
+        // iframeをDOMから削除することで、内部のスクリプト停止をブラウザに促す
+        elements.previewWindow.innerHTML = '';
+    }
 }
 
 export function renderScenarioTree() {
-    if (!elements.scenarioTree) return;
-    elements.scenarioTree.innerHTML = '';
-    const projectData = state.getProjectData();
-    const activeSectionId = state.getActiveSectionId();
-    const activeNodeId = state.getActiveNodeId();
-
+    if (!elements.scenarioTree) return; elements.scenarioTree.innerHTML = '';
+    const projectData = state.getProjectData(); const activeId = state.getActiveNodeId();
     Object.keys(projectData.scenario.sections).forEach(secId => {
-        const section = projectData.scenario.sections[secId];
-        const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'tree-section';
-        if (secId === activeSectionId) sectionDiv.classList.add('active');
-
-        const header = document.createElement('div');
-        header.className = 'tree-section-header';
-        header.textContent = section.name;
-        header.dataset.id = secId;
-        sectionDiv.appendChild(header);
-
-        const nodesGroup = document.createElement('div');
-        nodesGroup.className = 'tree-nodes-group';
-        
-        Object.keys(section.nodes).forEach(nodeId => {
-            const node = section.nodes[nodeId];
-            const nodeDiv = document.createElement('div');
-            nodeDiv.className = 'tree-node';
-            nodeDiv.dataset.id = nodeId;
-            nodeDiv.dataset.type = node.type;
-            
-            nodeDiv.draggable = true; 
-
-            if (nodeId === projectData.scenario.startNodeId) nodeDiv.classList.add('start-node');
-            if (nodeId === activeNodeId) nodeDiv.classList.add('active');
-
-            let icon = '';
-            let summary = '';
-            
-            switch(node.type) {
-                case 'text':
-                    icon = '💬';
-                    const tmp = document.createElement("div");
-                    tmp.innerHTML = node.message || '(テキストなし)';
-                    summary = tmp.textContent.substring(0, 12) + (tmp.textContent.length > 12 ? '...' : '');
-                    break;
-                case 'choice':
-                    icon = '🔀';
-                    summary = `選択肢: ${node.choices ? node.choices.length : 0}個`;
-                    break;
-                case 'variable':
-                    icon = '🔢';
-                    summary = `${node.targetVariable} ${node.operator} ${node.value}`;
-                    break;
-                case 'conditional':
-                    icon = '❓';
-                    summary = `IF分岐`;
-                    break;
-                case 'map':
-                    icon = '🗺️';
-                    summary = 'マップ移動';
-                    break;
-                default:
-                    icon = '📄';
-                    summary = node.type;
-            }
-
-            nodeDiv.innerHTML = `
-                <span class="node-icon">${icon}</span>
-                <div class="node-info">
-                    <span class="node-summary">${summary}</span>
-                    <span class="node-id-sub">${nodeId.slice(-4)}</span>
-                </div>
-            `;
-            
-            nodesGroup.appendChild(nodeDiv);
+        const sec = projectData.scenario.sections[secId];
+        const div = document.createElement('div'); div.className = 'tree-section';
+        div.innerHTML = `<div class="tree-section-header" data-id="${secId}">📁 ${sec.name}</div><div class="tree-nodes-group"></div>`;
+        const group = div.querySelector('.tree-nodes-group');
+        Object.keys(sec.nodes).forEach(nId => {
+            const n = sec.nodes[nId]; const nd = document.createElement('div'); nd.className = 'tree-node ' + (nId===activeId?'active':''); if(nId===projectData.scenario.startNodeId) nd.classList.add('start-node'); nd.dataset.id=nId;
+            let i='📄',s=n.type; if(n.type==='text'){i='💬'; s=(n.message||'').replace(/<[^>]*>/g,'').substring(0,10);} else if(n.type==='choice') {i='🔀';}
+            nd.innerHTML = `<span class="node-icon">${i}</span><div class="node-info"><span class="node-summary">${s}</span><span class="node-id-sub">${nId.slice(-4)}</span></div>`;
+            group.appendChild(nd);
         });
-        sectionDiv.appendChild(nodesGroup);
-        elements.scenarioTree.appendChild(sectionDiv);
+        elements.scenarioTree.appendChild(div);
     });
 }
-
 export function renderNodeEditor() {
-    const activeNodeId = state.getActiveNodeId();
-    const activeSectionId = state.getActiveSectionId();
-    const projectData = state.getProjectData();
-    
-    if (!activeNodeId || !activeSectionId || !projectData.scenario.sections[activeSectionId] || !projectData.scenario.sections[activeSectionId].nodes[activeNodeId]) {
-        elements.nodeEditor.classList.add('hidden');
-        if (elements.editorPlaceholder) elements.editorPlaceholder.style.display = 'flex';
-        return;
-    }
-    
-    elements.nodeEditor.classList.remove('hidden');
-    if (elements.editorPlaceholder) elements.editorPlaceholder.style.display = 'none';
-    
-    const node = projectData.scenario.sections[activeSectionId].nodes[activeNodeId];
-    elements.nodeIdDisplay.textContent = activeNodeId;
-    elements.isStartNodeCheckbox.checked = (activeNodeId === projectData.scenario.startNodeId);
-    elements.nodeTypeSelect.value = node.type;
-
+    const activeId = state.getActiveNodeId(); const secId = state.getActiveSectionId(); const proj = state.getProjectData();
+    if (!activeId || !proj.scenario.sections[secId]?.nodes[activeId]) { elements.nodeEditor.classList.add('hidden'); elements.editorPlaceholder.style.display='flex'; return; }
+    elements.nodeEditor.classList.remove('hidden'); elements.editorPlaceholder.style.display='none';
+    const node = proj.scenario.sections[secId].nodes[activeId];
+    elements.nodeIdDisplay.textContent = activeId; elements.isStartNodeCheckbox.checked = (activeId === proj.scenario.startNodeId); elements.nodeTypeSelect.value = node.type;
     elements.allNodeTypeSettings.forEach(el => el.classList.add('hidden'));
-    const currentSettings = document.getElementById(`${node.type}-node-settings`);
-    if(currentSettings) currentSettings.classList.remove('hidden');
+    const setEl = document.getElementById(`${node.type}-node-settings`); if(setEl) setEl.classList.remove('hidden');
 
-    switch(node.type) {
-        case 'text':
-            state.quill.root.innerHTML = node.message || '';
-            
-            // ★変更: 複数キャラ対応
-            // 古いデータ構造(characterId)がある場合は、新しい構造(characters配列)に変換してあげる
-            if (!node.characters) {
-                node.characters = [];
-                if (node.characterId) {
-                    node.characters.push({
-                        characterId: node.characterId,
-                        position: node.characterPosition || 'center'
-                    });
-                    // 古いデータは消してもいいが、念のため残すか、上書き時に消える
-                }
-            }
-            renderCharacterListEditor(node.characters);
-            
-            // キャラ追加ボタンのイベント
-            if(elements.textNode.addCharBtn) {
-                // イベントリスナーが重複しないように一旦クローンでリセットするか、onclickで上書き
-                elements.textNode.addCharBtn.onclick = () => {
-                    node.characters.push({ characterId: '', position: 'center' });
-                    renderCharacterListEditor(node.characters);
-                };
-            }
-
-            if(elements.textNode.customName) elements.textNode.customName.value = node.customName || '';
-            
-            elements.textNode.background.value = node.backgroundId || '';
-            elements.textNode.bgm.value = node.bgmId || '';
-            elements.textNode.sound.value = node.soundId || '';
-    let effectSelect = document.getElementById('node-effect');
-        if (!effectSelect) {
-            const container = elements.textNode.bgm.closest('.node-type-settings'); // 親コンテナ取得
-            
-            const group = document.createElement('div');
-            group.className = 'form-group';
-            group.style.marginTop = '10px';
-            group.style.padding = '10px';
-            group.style.background = '#fff0f6'; // 目立つように薄いピンク
-            group.style.borderRadius = '4px';
-            group.style.border = '1px dashed #ffadd2';
-
-            const label = document.createElement('label');
-            label.textContent = '⚡ 画面演出 (このノードの開始時)';
-            label.htmlFor = 'node-effect';
-            label.style.color = '#c41d7f';
-            label.style.fontWeight = 'bold';
-
-            effectSelect = document.createElement('select');
-            effectSelect.id = 'node-effect';
-            
-            // 演出のリスト
-            const effects = {
-                '': 'なし',
-                'flash-white': '⚪ 白フラッシュ (発光/雷)',
-                'flash-red': '🔴 赤フラッシュ (被弾/危険)',
-                'shake-small': '🫨 揺れ (小) - ガタッ',
-                'shake-medium': '🫨 揺れ (中) - ドスン',
-                'shake-hard': '🫨 揺れ (大) - 激震',
-                'fade-black': '⚫ 暗転 (フェードアウト→イン)'
-            };
-            for (const [val, text] of Object.entries(effects)) {
-                effectSelect.add(new Option(text, val));
-            }
-
-            // 挿入位置: BGM/SE設定(form-group-row)の後ろ
-            const soundRow = elements.textNode.sound.closest('.form-group-row');
-            if (soundRow && soundRow.nextSibling) {
-                container.insertBefore(group, soundRow.nextSibling);
-            } else {
-                container.appendChild(group);
-            }
-            group.appendChild(label);
-            group.appendChild(effectSelect);
+    if(node.type === 'text') {
+        state.quill.root.innerHTML = node.message || '';
+        if(!node.characters) node.characters=[]; renderCharacterListEditor(node.characters);
+        elements.textNode.addCharBtn.onclick = () => { node.characters.push({position:'bottom-center', scale:100}); renderCharacterListEditor(node.characters); };
+        if(!node.characters3d) node.characters3d=[]; render3DCharacterListEditor(node.characters3d);
+        elements.textNode.addChar3DBtn.onclick = () => { node.characters3d.push({modelId:'', posX:0, posY:0, posZ:0, rotX:0, rotY:0, rotZ:0, scale:1.0}); render3DCharacterListEditor(node.characters3d); };
+        if(elements.textNode.customName) elements.textNode.customName.value = node.customName||'';
+        elements.textNode.background.value = node.backgroundId||''; elements.textNode.bgm.value = node.bgmId||''; elements.textNode.sound.value = node.soundId||'';
+        let effSel = document.getElementById('node-effect');
+        if(!effSel) {
+            const grp = document.createElement('div'); grp.className='form-group'; grp.style.cssText='margin-top:10px; padding:10px; background:#fff0f6; border:1px dashed #ffadd2; border-radius:4px;';
+            grp.innerHTML = '<label style="color:#c41d7f; font-weight:bold;">⚡ 画面演出</label>';
+            effSel = document.createElement('select'); effSel.id='node-effect';
+            const effs = {'':'なし', 'flash-white':'⚪ 白フラッシュ', 'flash-red':'🔴 赤フラッシュ', 'shake-small':'🫨 揺れ(小)', 'shake-medium':'🫨 揺れ(中)', 'shake-hard':'🫨 揺れ(大)', 'fade-black':'⚫ 暗転'};
+            for(const [k,v] of Object.entries(effs)) effSel.add(new Option(v,k));
+            grp.appendChild(effSel); elements.textNode.sound.closest('.form-group-row').after(grp);
+            effSel.onchange = (e) => node.effect = e.target.value;
         }
-
-        // 値の反映と保存イベント
-        effectSelect.value = node.effect || '';
-        effectSelect.onchange = (e) => { 
-            node.effect = e.target.value; 
-        };
-        // ------------------------------------------
-
+        effSel.value = node.effect || '';
         createLinkedSelects(elements.textNode.nextContainer, 'node-next-text', node.nextNodeId);
-        break;
-
-        case 'choice':
-            renderChoicesEditor(node.choices || []);
-            break;
-
-        case 'variable':
-            elements.variableNode.target.value = node.targetVariable || '';
-            elements.variableNode.operator.value = node.operator || '=';
-            elements.variableNode.value.value = node.value || '';
-            createLinkedSelects(elements.variableNode.nextContainer, 'node-next-variable', node.nextNodeId);
-            break;
-
-        case 'conditional':
-            renderConditionsEditor(node.conditions || []);
-            createLinkedSelects(elements.conditionalNode.elseNextContainer, 'node-next-conditional-else', node.elseNextNodeId);
-            break;
-            
-        case 'map':
-            updateMapSelect(elements.mapNode.dest);
-            elements.mapNode.dest.value = node.mapId || '';
-            elements.mapNode.dest.onchange = () => {
-                updateSpawnSelect(elements.mapNode.spawn, elements.mapNode.dest.value);
-            };
-            updateSpawnSelect(elements.mapNode.spawn, node.mapId);
-            elements.mapNode.spawn.value = node.spawnId || '';
-            break;
+    } else if (node.type === 'choice') { renderChoicesEditor(node.choices||[]); 
+    } else if (node.type === 'variable') {
+        elements.variableNode.target.value = node.targetVariable||''; elements.variableNode.operator.value = node.operator||'='; elements.variableNode.value.value = node.value||''; createLinkedSelects(elements.variableNode.nextContainer, 'node-next-variable', node.nextNodeId);
+    } else if (node.type === 'conditional') {
+        renderConditionsEditor(node.conditions||[]); createLinkedSelects(elements.conditionalNode.elseNextContainer, 'node-next-conditional-else', node.elseNextNodeId);
+    } else if (node.type === 'map') {
+        updateMapSelect(elements.mapNode.dest); elements.mapNode.dest.value = node.mapId||''; 
+        elements.mapNode.dest.onchange = () => updateSpawnSelect(elements.mapNode.spawn, elements.mapNode.dest.value);
+        updateSpawnSelect(elements.mapNode.spawn, node.mapId); elements.mapNode.spawn.value = node.spawnId||'';
     }
 }
-
-function updateMapSelect(selectElement) {
-    const maps = state.getProjectData().maps;
-    selectElement.innerHTML = '<option value="">(マップを選択)</option>';
-    if(maps) {
-        for (const id in maps) {
-            selectElement.add(new Option(maps[id].name, id));
-        }
-    }
-}
-
-function updateSpawnSelect(selectElement, mapId) {
-    selectElement.innerHTML = '<option value="">(前回位置または初期位置)</option>';
-    if (!mapId) return;
-    const projectData = state.getProjectData();
-    const map = projectData.maps[mapId];
-    if (!map || !map.objects) return;
-
-    map.objects.forEach(obj => {
-        if (obj.isSpawn) {
-            const label = obj.spawnId ? `🚩 ${obj.spawnId}` : `🚩 (IDなし) [${obj.x},${obj.y}]`;
-            const value = obj.spawnId || '';
-            selectElement.add(new Option(label, value));
-        }
-    });
-}
-
+function updateMapSelect(el) { const m=state.getProjectData().maps; el.innerHTML='<option value="">(選択)</option>'; if(m) for(const id in m) el.add(new Option(m[id].name, id)); }
+function updateSpawnSelect(el, mid) { el.innerHTML='<option value="">(初期位置)</option>'; const m=state.getProjectData().maps[mid]; if(m) m.objects.forEach(o=>{if(o.isSpawn) el.add(new Option(`🚩 ${o.spawnId||'IDなし'}`, o.spawnId||''));}); }
 export function renderChoicesEditor(choices) {
     elements.choiceNode.editor.innerHTML = '';
-    choices.forEach((choice, index) => {
-        const item = document.createElement('div');
-        item.className = 'choice-editor-item';
-        
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = '選択肢テキスト';
-        input.value = choice.text || '';
-        input.dataset.index = index;
-        input.dataset.field = 'text';
-
-        const arrow = document.createElement('span');
-        arrow.textContent = '→';
-
-        const selectContainer = document.createElement('div');
-        selectContainer.className = 'smart-select-mini';
-        createLinkedSelects(selectContainer, null, choice.nextNodeId, { index: index, field: 'nextNodeId' });
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'danger-button';
-        delBtn.textContent = '×';
-        delBtn.dataset.index = index;
-
-        item.appendChild(input);
-        item.appendChild(arrow);
-        item.appendChild(selectContainer);
-        item.appendChild(delBtn);
-
-        elements.choiceNode.editor.appendChild(item);
+    choices.forEach((c, i) => {
+        const d = document.createElement('div'); d.className='choice-editor-item';
+        d.innerHTML = `<input type="text" value="${c.text||''}" placeholder="選択肢"><div class="smart-select-mini"></div><button class="danger-button">×</button>`;
+        d.querySelector('input').onchange = (e) => c.text = e.target.value;
+        createLinkedSelects(d.querySelector('.smart-select-mini'), null, c.nextNodeId, {index:i, field:'nextNodeId'});
+        d.querySelector('button').onclick = () => { choices.splice(i, 1); renderChoicesEditor(choices); };
+        elements.choiceNode.editor.appendChild(d);
     });
 }
-
-export function renderConditionsEditor(conditions) {
+export function renderConditionsEditor(conds) {
     elements.conditionalNode.editor.innerHTML = '';
-    conditions.forEach((cond, index) => {
-        const item = document.createElement('div');
-        item.className = 'condition-editor-item';
-
-        const label = document.createElement('span');
-        label.textContent = 'IF';
-        item.appendChild(label);
-
-        const varSelect = document.createElement('select');
-        varSelect.dataset.index = index;
-        varSelect.dataset.field = 'variable';
-        varSelect.value = cond.variable; 
-        item.appendChild(varSelect);
-
-        const opSelect = document.createElement('select');
-        opSelect.dataset.index = index;
-        opSelect.dataset.field = 'operator';
-        ['==', '!=', '>', '<', '>=', '<='].forEach(op => {
-            const o = new Option(op, op);
-            if(op === cond.operator) o.selected = true;
-            opSelect.add(o);
-        });
-        item.appendChild(opSelect);
-
-        const valInput = document.createElement('input');
-        valInput.type = 'text';
-        valInput.placeholder = '値';
-        valInput.value = cond.compareValue || '';
-        valInput.dataset.index = index;
-        valInput.dataset.field = 'compareValue';
-        item.appendChild(valInput);
-
-        const arrow = document.createElement('span');
-        arrow.textContent = 'THEN →';
-        item.appendChild(arrow);
-
-        const selectContainer = document.createElement('div');
-        selectContainer.className = 'smart-select-mini';
-        createLinkedSelects(selectContainer, null, cond.nextNodeId, { index: index, field: 'nextNodeId' });
-        item.appendChild(selectContainer);
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'danger-button';
-        delBtn.textContent = '×';
-        delBtn.dataset.index = index;
-        item.appendChild(delBtn);
-
-        elements.conditionalNode.editor.appendChild(item);
+    conds.forEach((c, i) => {
+        const d = document.createElement('div'); d.className='condition-editor-item';
+        const vSel = document.createElement('select'); updateVariableSelectsFor(vSel); vSel.value=c.variable; vSel.onchange=e=>c.variable=e.target.value;
+        const opSel = document.createElement('select'); ['==','!=','>','<','>=','<='].forEach(op=>opSel.add(new Option(op,op))); opSel.value=c.operator; opSel.onchange=e=>c.operator=e.target.value;
+        const valInp = document.createElement('input'); valInp.value=c.compareValue||''; valInp.onchange=e=>c.compareValue=e.target.value;
+        const nextDiv = document.createElement('div'); nextDiv.className='smart-select-mini'; createLinkedSelects(nextDiv, null, c.nextNodeId, {index:i, field:'nextNodeId'});
+        const del = document.createElement('button'); del.textContent='×'; del.className='danger-button'; del.onclick=()=>{ conds.splice(i,1); renderConditionsEditor(conds); };
+        d.append(vSel, opSel, valInp, nextDiv, del);
+        elements.conditionalNode.editor.appendChild(d);
     });
-    
     updateVariableSelects();
 }
-
+function updateVariableSelectsFor(sel) { const v=state.getProjectData().variables; sel.innerHTML='<option value="">(変数)</option>'; Object.keys(v).forEach(k=>sel.add(new Option(k,k))); }
 export function renderVariablesList() {
-    let html = `
-        <div class="variable-header">
-            <div>変数名</div>
-            <div>初期値</div>
-            <div>操作</div>
-        </div>
-    `;
-
-    const projectData = state.getProjectData();
-    const variables = projectData.variables;
-
-    if (Object.keys(variables).length === 0) {
-        html += `<div style="padding:20px; text-align:center; color:#777;">変数はまだ登録されていません。</div>`;
-    } else {
-        Object.keys(variables).forEach(varName => {
-            const value = variables[varName];
-            html += `
-                <div class="variable-row">
-                    <div class="variable-name">${varName}</div>
-                    <input type="text" value="${value}" data-var-name="${varName}" placeholder="初期値">
-                    <button class="danger-button" data-var-name="${varName}">削除</button>
-                </div>
-            `;
-        });
-    }
-    elements.variablesList.innerHTML = html;
-}
-
-export function renderAssetList(type) {
-    const listElement = document.getElementById(`${type.slice(0, -1)}-list`);
-    if (!listElement) return;
-    listElement.innerHTML = '';
-    const projectData = state.getProjectData();
+    const v = state.getProjectData().variables;
+    let h = '<div class="variable-header"><div>名前</div><div>値</div><div></div></div>';
+    if(Object.keys(v).length===0) h+=`<div style="text-align:center; color:#777;">変数はまだありません。</div>`;
+    else Object.keys(v).forEach(k => { h += `<div class="variable-row"><div>${k}</div><input type="text" value="${v[k]}" onchange="state.getProjectData().variables['${k}']=this.value"><button class="danger-button" data-var-name="${k}">削除</button></div>`; });
     
-    const assets = projectData.assets[type];
-    if (!assets) return;
+    elements.variablesList.innerHTML = h;
 
+    elements.variablesList.querySelectorAll('.danger-button').forEach(btn => {
+        btn.onclick = () => {
+            const varName = btn.dataset.varName;
+            delete state.getProjectData().variables[varName];
+            renderVariablesList();
+            updateVariableSelects();
+        };
+    });
+}
+export function renderAssetList(type) {
+    const list = document.getElementById(`${type.slice(0,-1)}-list`); if(!list) return; list.innerHTML = '';
+    const assets = state.getProjectData().assets[type]; if (!assets) return;
     for (const id in assets) {
-        const asset = assets[id];
-        const card = document.createElement('div');
-        card.className = 'asset-card';
+        const a = assets[id];
+        const card = document.createElement('div'); card.className = 'asset-card';
         
-        let contentHtml = '';
+        let prev = `<img src="${a.data}">`;
         
-        if (!asset.data && !asset.isSpriteSheet) {
-            contentHtml += `<div style="color:red; font-weight:bold;">エラー: データ破損 (${id})</div>`;
-        } else if (!asset.data && asset.isSpriteSheet) {
-            contentHtml = `
-                <div style="width:100%; height:120px; background-color:#eee; border-radius:4px; display:flex; justify-content:center; align-items:center; color:#555; font-size:0.9em; text-align:center;">
-                    スプライトシート<br>(${asset.width}x${asset.height}px)
+        if (type === 'models' || type === 'animations') {
+            prev = `<div style="background:#eee;height:100px;display:flex;justify-content:center;align-items:center;font-size:30px;">📦</div>`;
+        } else if (a.data.startsWith('data:video')) {
+            // ★修正: muted を削除し、controls を追加（音量調整や再生バーを表示）
+            prev = `<video src="${a.data}" controls playsinline style="width:100%; height:140px; background:#000; object-fit:contain;"></video>`;
+        }
+        
+        let settingsHtml = '';
+        if (type === 'characters' || type === 'backgrounds') {
+            const width = a.width || '?';
+            const height = a.height || '?';
+            settingsHtml = `
+            <div class="anim-settings">
+                <div style="font-size:0.8em; color:#666; margin-bottom:5px;">Size: ${width} x ${height} px</div>
+                <div class="anim-row">
+                    <label>列(Cols):</label><input type="number" value="${a.cols||1}" min="1" data-id="${id}" data-type="${type}" data-setting="cols">
+                    <label>行(Rows):</label><input type="number" value="${a.rows||1}" min="1" data-id="${id}" data-type="${type}" data-setting="rows">
                 </div>
-                <div class="asset-key">${id}</div>
-                <input type="text" value="${asset.name}" data-id="${id}" data-type="${type}" placeholder="アセット名">
-                <div class="anim-settings">
-                    <button class="json-btn" data-id="${id}" data-type="${type}">📄 設定JSONを読込</button>
-                    <div class="anim-row">
-                        <label>横</label><input type="number" value="${asset.cols || 1}" min="1" data-setting="cols" data-id="${id}" data-type="${type}">
-                        <label>縦</label><input type="number" value="${asset.rows || 1}" min="1" data-setting="rows" data-id="${id}" data-type="${type}">
-                    </div>
-                    <div class="anim-row">
-                        <label>FPS</label><input type="number" value="${asset.fps || 12}" min="1" data-setting="fps" data-id="${id}" data-type="${type}">
-                        <label><input type="checkbox" ${asset.loop ? 'checked' : ''} data-setting="loop" data-id="${id}" data-type="${type}">ループ</label>
-                    </div>
+                <div class="anim-row">
+                    <label>FPS:</label><input type="number" value="${a.fps||12}" min="1" data-id="${id}" data-type="${type}" data-setting="fps">
+                    <label><input type="checkbox" ${a.loop!==false?'checked':''} data-id="${id}" data-type="${type}" data-setting="loop">Loop</label>
                 </div>
-                <button class="danger-button" data-id="${id}" data-type="${type}">削除</button>
-            `;
-        } else {
-            contentHtml = `
-                <img src="${asset.data}" alt="${asset.name}">
-                <div class="asset-key">${id}</div>
-                <input type="text" value="${asset.name}" data-id="${id}" data-type="${type}" placeholder="アセット名">
-                <div class="anim-settings">
-                    <button class="json-btn" data-id="${id}" data-type="${type}">📄 設定JSONを読込</button>
-                    <div class="anim-row">
-                        <label>横</label><input type="number" value="${asset.cols || 1}" min="1" data-setting="cols" data-id="${id}" data-type="${type}">
-                        <label>縦</label><input type="number" value="${asset.rows || 1}" min="1" data-setting="rows" data-id="${id}" data-type="${type}">
-                    </div>
-                    <div class="anim-row">
-                        <label>FPS</label><input type="number" value="${asset.fps || 12}" min="1" data-setting="fps" data-id="${id}" data-type="${type}">
-                        <label><input type="checkbox" ${asset.loop ? 'checked' : ''} data-setting="loop" data-id="${id}" data-type="${type}">ループ</label>
-                    </div>
-                </div>
-                <button class="danger-button" data-id="${id}" data-type="${type}">削除</button>
-            `;
+            </div>`;
         }
 
-        card.innerHTML = contentHtml;
-        listElement.appendChild(card);
+        card.innerHTML = `${prev}<div class="asset-key">${id}</div>
+        <input type="text" value="${a.name}" data-id="${id}" data-type="${type}">
+        ${settingsHtml}
+        <button class="json-btn" data-id="${id}" data-type="${type}" style="display:none">JSON更新</button>
+        <button class="danger-button" data-id="${id}" data-type="${type}">削除</button>`;
+        list.appendChild(card);
     }
 }
 
-export function updateAllNodeSelects() {
-    renderNodeEditor();
-}
+export function updateAllNodeSelects() { renderNodeEditor(); }
 
+// --- ★修正: 汎用アセットリスト更新（マップ用含む） ---
 export function updateAssetDropdowns() {
-    // 既存の固定プルダウン（背景、マップ背景）の更新
     populateAssetSelect(elements.textNode.background, 'backgrounds', '変更なし');
     populateAssetSelect(elements.mapBgSelect, 'backgrounds', 'なし');
+    // ★追加: マップエディタのオブジェクト用画像セレクトも更新
+    if (elements.mapObjCharSelect) {
+        populateAssetSelect(elements.mapObjCharSelect, 'characters', 'なし');
+    }
     
-    // BGM/SEの更新
+    // サウンド
     const soundSelects = [elements.textNode.bgm, elements.textNode.sound];
     const projectData = state.getProjectData();
     soundSelects.forEach(select => {
@@ -853,167 +479,53 @@ export function updateAssetDropdowns() {
         const currentVal = select.value;
         select.innerHTML = '';
         select.add(new Option('変更なし (維持)', ''));
-        select.add(new Option('なし', ''));
-        select.add(new Option('BGMを停止', 'stop'));
+        select.add(new Option('停止 (Stop)', 'stop'));
         const assets = projectData.assets.sounds;
-        if (assets) {
-            for (const id in assets) {
-                select.add(new Option(assets[id].name, id));
-            }
-        }
+        if (assets) { for (const id in assets) { select.add(new Option(assets[id].name, id)); } }
         select.value = currentVal;
     });
 
-    renderNodeEditor();
+    renderNodeEditor(); // エディタ再描画
 }
 
 export function updateVariableSelects() {
     const selects = Array.from(document.querySelectorAll('#var-target, select[data-field="variable"]'));
-    const mapCondVar = document.getElementById('obj-cond-var');
-    if (mapCondVar) selects.push(mapCondVar);
-
-    const projectData = state.getProjectData();
-    const options = Object.keys(projectData.variables).map(name => `<option value="${name}">${name}</option>`).join('');
-    
-    selects.forEach(select => {
-        let currentValue = select.value;
-        select.innerHTML = '<option value="">(条件なし)</option>' + options;
-        
-        if (currentValue && projectData.variables.hasOwnProperty(currentValue)) {
-            select.value = currentValue;
-        } else if (select !== mapCondVar && Object.keys(projectData.variables).length > 0) {
-            if (select.id === 'var-target') select.value = Object.keys(projectData.variables)[0];
-        }
+    const mapCondVar = document.getElementById('obj-cond-var'); if (mapCondVar) selects.push(mapCondVar);
+    const v = state.getProjectData().variables;
+    const opts = Object.keys(v).map(n => `<option value="${n}">${n}</option>`).join('');
+    selects.forEach(sel => {
+        let val = sel.value; sel.innerHTML = '<option value="">(変数)</option>' + opts;
+        if (val && v.hasOwnProperty(val)) sel.value = val;
     });
 }
 
-export function initUi() {
-    renderAll();
-    initHelpSystem();
-}
-
+// UI設定初期化
 export function initUISettings() {
-    const projectData = state.getProjectData();
-    // データがない場合の初期化
-    if (!projectData.settings) {
-        projectData.settings = {
-            windowColor: '#000000', windowOpacity: 75, windowBgTransparent: false, windowImage: null,
-            textColor: '#ffffff',
-            buttonColor: '#1990ff', buttonOpacity: 80, buttonBgTransparent: false, buttonImage: null,
-            borderRadius: 10
+    const s = state.getProjectData().settings;
+    if(!s) return;
+    const bindCheck = (id, k) => { const el=document.getElementById(id); if(el){ el.checked=s[k]; el.onchange=e=>s[k]=e.target.checked; } };
+    const bindColor = (id, k) => { const el=document.getElementById(id); if(el){ el.value=s[k]; el.oninput=e=>s[k]=e.target.value; } };
+    const bindRange = (id, lId, k) => { const el=document.getElementById(id), l=document.getElementById(lId); if(el){ el.value=s[k]; l.textContent=s[k]+'%'; el.oninput=e=>{s[k]=parseInt(e.target.value); l.textContent=s[k]+'%';}; } };
+    const bindNum = (id, k) => { const el=document.getElementById(id); if(el){ el.value=s[k]; el.onchange=e=>s[k]=parseInt(e.target.value)||0; } };
+    const setupImg = (btnId, prevId, clearId, k) => {
+        const btn=document.getElementById(btnId), prev=document.getElementById(prevId), clr=document.getElementById(clearId);
+        if(!btn) return;
+        const up = () => { 
+            if(s[k]) { prev.style.backgroundImage=`url(${s[k]})`; prev.textContent=''; clr.style.display='inline-block'; }
+            else { prev.style.backgroundImage='none'; prev.textContent='なし'; clr.style.display='none'; }
         };
-    }
-    const s = projectData.settings;
-
-    // 各入力欄の要素取得
-    const inputs = {
-        // Window
-        windowBgTransparent: document.getElementById('ui-window-bg-transparent'),
-        windowColor: document.getElementById('ui-window-color'),
-        windowOpacity: document.getElementById('ui-window-opacity'),
-        windowOpacityLabel: document.getElementById('ui-window-opacity-label'),
-        windowImageBtn: document.getElementById('ui-window-image-btn'),
-        windowImagePreview: document.getElementById('ui-window-image-preview'),
-        windowImageClear: document.getElementById('ui-window-image-clear'),
-        // Button
-        buttonBgTransparent: document.getElementById('ui-button-bg-transparent'),
-        buttonColor: document.getElementById('ui-button-color'),
-        buttonOpacity: document.getElementById('ui-button-opacity'),
-        buttonOpacityLabel: document.getElementById('ui-button-opacity-label'),
-        buttonImageBtn: document.getElementById('ui-button-image-btn'),
-        buttonImagePreview: document.getElementById('ui-button-image-preview'),
-        buttonImageClear: document.getElementById('ui-button-image-clear'),
-        borderRadius: document.getElementById('ui-border-radius'),
-                borderRadius: document.getElementById('ui-border-radius'),
-        borderWidth: document.getElementById('ui-border-width'),
-        borderColor: document.getElementById('ui-border-color')
-
+        up();
+        const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none'; document.body.appendChild(inp);
+        btn.onclick=()=>inp.click();
+        inp.onchange=e=>{ const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onload=evt=>{s[k]=evt.target.result; up();}; r.readAsDataURL(f); inp.value=''; } };
+        clr.onclick=()=>{ s[k]=null; up(); };
     };
-
-    // 要素が存在しない場合は何もしない
-    if(!inputs.windowColor) return;
-
-    // --- 値の初期化とイベントリスナー設定 ---
-
-    // ヘルパー関数: スライダーとラベルを同期
-    const setupSlider = (slider, label, key) => {
-        slider.value = s[key];
-        label.textContent = `${s[key]}%`;
-        slider.oninput = (e) => {
-            const value = e.target.value;
-            s[key] = parseInt(value);
-            label.textContent = `${value}%`;
-        };
-    };
-
-    // ヘルパー関数: チェックボックスを同期
-    const setupCheckbox = (checkbox, key) => {
-        checkbox.checked = s[key];
-        checkbox.onchange = (e) => {
-            s[key] = e.target.checked;
-        };
-    };
-
-    // ヘルパー関数: カラーピッカーを同期
-    const setupColorPicker = (picker, key) => {
-        picker.value = s[key];
-        picker.onchange = (e) => {
-            s[key] = e.target.value;
-        };
-        // リアルタイム反映させたいなら oninput を使う
-        picker.oninput = (e) => {
-             s[key] = e.target.value;
-        };
-    };
-    
-    // ヘルパー関数: 画像アップロードをセットアップ
-    const setupImageUpload = (btn, preview, clearBtn, key) => {
-        const updatePreview = () => {
-            if (s[key]) {
-                preview.style.backgroundImage = `url(${s[key]})`;
-                preview.textContent = '';
-                clearBtn.style.display = 'inline-block';
-            } else {
-                preview.style.backgroundImage = 'none';
-                preview.textContent = 'なし';
-                clearBtn.style.display = 'none';
-            }
-        };
-        updatePreview();
-
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
-        document.body.appendChild(fileInput);
-
-        btn.onclick = () => fileInput.click();
-
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (evt) => { s[key] = evt.target.result; updatePreview(); };
-            reader.readAsDataURL(file);
-            fileInput.value = '';
-        };
-
-        clearBtn.onclick = () => { s[key] = null; updatePreview(); };
-    };
-
-    // 各UI要素に設定を適用
-    setupCheckbox(inputs.windowBgTransparent, 'windowBgTransparent');
-    setupColorPicker(inputs.windowColor, 'windowColor');
-    setupSlider(inputs.windowOpacity, inputs.windowOpacityLabel, 'windowOpacity');
-    setupImageUpload(inputs.windowImageBtn, inputs.windowImagePreview, inputs.windowImageClear, 'windowImage');
-
-    setupCheckbox(inputs.buttonBgTransparent, 'buttonBgTransparent');
-    setupColorPicker(inputs.buttonColor, 'buttonColor');
-    setupSlider(inputs.buttonOpacity, inputs.buttonOpacityLabel, 'buttonOpacity');
-    setupImageUpload(inputs.buttonImageBtn, inputs.buttonImagePreview, inputs.buttonImageClear, 'buttonImage');
-
-   inputs.borderRadius.value = s.borderRadius;
-    inputs.borderRadius.onchange = (e) => { s.borderRadius = parseInt(e.target.value) || 0; };
-    
-    inputs.borderWidth.value = s.borderWidth;
-    inputs.borderWidth.onchange = (e) => { s.borderWidth = parseInt(e.target.value) || 0; };
-
-    setupColorPicker(inputs.borderColor, 'borderColor');
+    bindCheck('ui-window-bg-transparent', 'windowBgTransparent'); bindColor('ui-window-color', 'windowColor'); bindRange('ui-window-opacity', 'ui-window-opacity-label', 'windowOpacity');
+    setupImg('ui-window-image-btn', 'ui-window-image-preview', 'ui-window-image-clear', 'windowImage');
+    bindCheck('ui-button-bg-transparent', 'buttonBgTransparent'); bindColor('ui-button-color', 'buttonColor'); bindRange('ui-button-opacity', 'ui-button-opacity-label', 'buttonOpacity');
+    setupImg('ui-button-image-btn', 'ui-button-image-preview', 'ui-button-image-clear', 'buttonImage');
+    bindNum('ui-border-radius', 'borderRadius'); bindNum('ui-border-width', 'borderWidth'); bindColor('ui-border-color', 'borderColor');
+     bindColor('ui-button-text-color', 'buttonTextColor');
 }
+
+export function initUi() { renderAll(); initHelpSystem(); initUISettings(); }
